@@ -326,7 +326,7 @@ export default function FeedScreen() {
           {/* 게시물 이미지 */}
           <View style={styles.imageContainer}>
             <Image 
-              source={{ uri: feed.imageUrl }} 
+              source={{ uri: feed.imageUrl || 'https://via.placeholder.com/375x200' }} 
               style={styles.feedImage} 
               resizeMode="cover"
             />
