@@ -1,6 +1,8 @@
 import { useRouter } from 'expo-router';
 import React, { useEffect } from 'react';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import AlarmSetup from '../(auth)/AlarmSetup';
+import ProfileSetup from '../(auth)/ProfileSetup';
 import GoogleSignInButton from '../components/GoogleSignInButton';
 import { useGoogleAuth } from '../utils/auth';
 
@@ -8,6 +10,8 @@ export default function LoginScreen() {
   const router = useRouter();
   const { checkAuth } = useGoogleAuth();
   const [isLoading, setIsLoading] = React.useState(true);
+  const [showProfileSetup, setShowProfileSetup] = React.useState(false);
+  const [showAlarmSetup, setShowAlarmSetup] = React.useState(false);
 
   useEffect(() => {
     const checkLoginStatus = async () => {
@@ -37,6 +41,30 @@ export default function LoginScreen() {
     );
   }
 
+  // 테스트용: 회원가입 플로우 직접 확인
+  if (showProfileSetup) {
+    return (
+      <ProfileSetup
+        onClose={() => setShowProfileSetup(false)}
+        onNext={() => {
+          setShowProfileSetup(false);
+          setShowAlarmSetup(true);
+        }}
+      />
+    );
+  }
+  if (showAlarmSetup) {
+    return (
+      <AlarmSetup
+        onClose={() => setShowAlarmSetup(false)}
+        onComplete={() => {
+          setShowAlarmSetup(false);
+          // 회원가입 완료 후 이동 등 추가 가능
+        }}
+      />
+    );
+  }
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
@@ -46,6 +74,10 @@ export default function LoginScreen() {
       
       <View style={styles.content}>
         <GoogleSignInButton />
+        {/* 테스트용 버튼: 회원가입 플로우 확인 */}
+        <TouchableOpacity style={styles.testBtn} onPress={() => setShowProfileSetup(true)}>
+          <Text style={{ color: '#fff', fontWeight: 'bold' }}>회원가입 플로우 테스트</Text>
+        </TouchableOpacity>
       </View>
     </View>
   );
@@ -81,5 +113,12 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingBottom: 50,
+  },
+  testBtn: {
+    marginTop: 24,
+    backgroundColor: '#FF5A5F',
+    padding: 14,
+    borderRadius: 8,
+    alignItems: 'center',
   },
 }); 
