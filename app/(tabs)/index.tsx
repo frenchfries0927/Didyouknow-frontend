@@ -404,7 +404,7 @@ export default function FeedScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* 상단 네비게이션 바 */}
+      {/* 상단 네비게이션 바 복구 */}
       <View style={styles.navbar}>
         <Text style={styles.logoText}>logo</Text>
         <View style={styles.navbarRight}>
@@ -412,7 +412,7 @@ export default function FeedScreen() {
             <Ionicons name="notifications-outline" size={24} color="#000" />
           </TouchableOpacity>
           <TouchableOpacity style={styles.navButton}>
-            <Ionicons name="person-outline" size={24} color="#000" />
+            <Ionicons name="paper-plane-outline" size={24} color="#000" />
           </TouchableOpacity>
         </View>
       </View>
@@ -434,35 +434,17 @@ export default function FeedScreen() {
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color="#FF6B6B" />
           </View>
+        ) : error ? (
+          <View style={styles.errorContainer}>
+            <Text style={styles.errorText}>{error}</Text>
+            <TouchableOpacity style={styles.retryButton} onPress={fetchFeeds}>
+              <Text style={styles.retryButtonText}>다시 시도</Text>
+            </TouchableOpacity>
+          </View>
         ) : (
           feeds.map((feed, index) => renderFeedItem(feed, index))
         )}
       </ScrollView>
-
-      {/* 바텀 네비게이션 바 */}
-      <View style={styles.bottomNav}>
-        <View style={styles.bottomNavItem}>
-          <Ionicons name="home" size={24} color="#FF6B6B" />
-          <Text style={styles.activeNavText}>홈</Text>
-        </View>
-        <View style={styles.bottomNavItem}>
-          <Ionicons name="search" size={24} color="#7d7d7d" />
-          <Text style={styles.navText}>검색</Text>
-        </View>
-        <View style={styles.createButtonContainer}>
-          <TouchableOpacity style={styles.createButton}>
-            <Ionicons name="add" size={28} color="#fff" />
-          </TouchableOpacity>
-        </View>
-        <View style={styles.bottomNavItem}>
-          <Ionicons name="bookmark-outline" size={24} color="#7d7d7d" />
-          <Text style={styles.navText}>저장</Text>
-        </View>
-        <View style={styles.bottomNavItem}>
-          <Ionicons name="person-outline" size={24} color="#7d7d7d" />
-          <Text style={styles.navText}>프로필</Text>
-        </View>
-      </View>
 
       {/* 댓글 모달 */}
       <Modal
@@ -472,26 +454,26 @@ export default function FeedScreen() {
         onRequestClose={closeCommentModal}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.commentModal}>
-            <View style={styles.commentHeader}>
-              <Text style={styles.commentHeaderTitle}>댓글</Text>
-              <TouchableOpacity onPress={closeCommentModal}>
+          <View style={styles.modalContainer}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>댓글</Text>
+              <TouchableOpacity style={styles.closeButton} onPress={closeCommentModal}>
                 <Ionicons name="close" size={24} color="#000" />
               </TouchableOpacity>
             </View>
             
-            <ScrollView style={styles.commentsList}>
+            <ScrollView style={styles.commentList}>
               {comments.map(comment => (
                 <View key={comment.id} style={styles.commentItem}>
                   <View style={styles.commentAvatar} />
                   <View style={styles.commentContent}>
-                    <View style={styles.commentAuthorRow}>
+                    <View style={styles.commentMeta}>
                       <Text style={styles.commentAuthor}>{comment.author}</Text>
                       <Text style={styles.commentTime}>{comment.createdAt}</Text>
                     </View>
                     <Text style={styles.commentText}>{comment.content}</Text>
                     <View style={styles.commentActions}>
-                      <TouchableOpacity style={styles.commentLikeButton}>
+                      <TouchableOpacity style={styles.commentLike}>
                         <Ionicons name="heart-outline" size={16} color="#7d7d7d" />
                         <Text style={styles.commentLikeCount}>{comment.likes}</Text>
                       </TouchableOpacity>
@@ -501,16 +483,19 @@ export default function FeedScreen() {
               ))}
             </ScrollView>
             
-            <View style={styles.commentInputContainer}>
+            <View style={styles.commentInput}>
               <TextInput
-                style={styles.commentInput}
+                style={styles.textInput}
                 placeholder="댓글을 입력하세요..."
                 value={commentText}
                 onChangeText={setCommentText}
                 multiline={false}
               />
               <TouchableOpacity 
-                style={styles.sendButton}
+                style={[
+                  styles.sendButton,
+                  commentText.trim() === '' && styles.disabledSendButton
+                ]}
                 onPress={submitComment}
                 disabled={commentText.trim() === ''}
               >
@@ -529,38 +514,6 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F8F9FE',
   },
-  navbar: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 1,
-  },
-  logoText: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#FF6B6B',
-    fontFamily: 'Pacifico_400Regular',
-  },
-  navbarRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  navButton: {
-    width: 32,
-    height: 32,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginLeft: 16,
-  },
   contentArea: {
     flex: 1,
     paddingTop: 8,
@@ -571,6 +524,26 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: 40,
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 40,
+  },
+  errorText: {
+    color: '#FF6B6B',
+    marginBottom: 20,
+  },
+  retryButton: {
+    backgroundColor: '#FF6B6B',
+    padding: 12,
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '500',
   },
   feedCard: {
     backgroundColor: '#fff',
@@ -726,61 +699,18 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  bottomNav: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    alignItems: 'center',
-    backgroundColor: '#fff',
-    height: 56,
-    borderTopWidth: 1,
-    borderTopColor: '#f0f0f0',
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-  },
-  bottomNavItem: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    flex: 1,
-  },
-  navText: {
-    fontSize: 10,
-    marginTop: 4,
-    color: '#7d7d7d',
-  },
-  activeNavText: {
-    fontSize: 10,
-    marginTop: 4,
-    color: '#FF6B6B',
-    fontWeight: '500',
-  },
-  createButtonContainer: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    width: 60,
-  },
-  createButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#FF6B6B',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: -20,
-  },
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'flex-end',
   },
-  commentModal: {
+  modalContainer: {
     backgroundColor: '#fff',
     borderTopLeftRadius: 16,
     borderTopRightRadius: 16,
     height: '90%',
   },
-  commentHeader: {
+  modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
@@ -788,11 +718,17 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#f0f0f0',
   },
-  commentHeaderTitle: {
+  modalTitle: {
     fontSize: 16,
     fontWeight: '600',
   },
-  commentsList: {
+  closeButton: {
+    width: 32,
+    height: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  commentList: {
     padding: 16,
   },
   commentItem: {
@@ -809,7 +745,7 @@ const styles = StyleSheet.create({
   commentContent: {
     flex: 1,
   },
-  commentAuthorRow: {
+  commentMeta: {
     flexDirection: 'row',
     alignItems: 'center',
   },
@@ -832,7 +768,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     marginTop: 8,
   },
-  commentLikeButton: {
+  commentLike: {
     flexDirection: 'row',
     alignItems: 'center',
   },
@@ -841,14 +777,14 @@ const styles = StyleSheet.create({
     color: '#7d7d7d',
     marginLeft: 4,
   },
-  commentInputContainer: {
+  commentInput: {
     flexDirection: 'row',
     padding: 16,
     borderTopWidth: 1,
     borderTopColor: '#f0f0f0',
     alignItems: 'center',
   },
-  commentInput: {
+  textInput: {
     flex: 1,
     height: 40,
     borderWidth: 1,
@@ -866,6 +802,40 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginLeft: 8,
+  },
+  disabledSendButton: {
+    backgroundColor: '#ccc',
+  },
+  navbar: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 1,
+  },
+  logoText: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#FF6B6B',
+  },
+  navbarRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  navButton: {
+    width: 32,
+    height: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 16,
   },
 });
 
