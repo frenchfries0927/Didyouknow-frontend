@@ -9,10 +9,16 @@ const GoogleSignInButton = () => {
 
   const handleSignIn = async () => {
     try {
-      const success = await signIn();
-      if (success) {
+      const result = await signIn();
+      if (result.success) {
         console.log('Successfully signed in with Google');
-        router.replace('/(tabs)');
+        if (result.requiresProfile) {
+          console.log('Profile setup required, navigating to signup flow...');
+          router.replace('/(auth)/SignupFlow');
+        } else {
+          console.log('Profile already set up, navigating to tabs...');
+          router.replace('/(tabs)');
+        }
       } else {
         console.log('Failed to sign in with Google');
       }

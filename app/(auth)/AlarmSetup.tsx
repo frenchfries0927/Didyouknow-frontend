@@ -1,23 +1,36 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import { Modal, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
 
-const hours = Array.from({ length: 24 }, (_, i) => i);
+interface AlarmSetupProps {
+  onClose: () => void;
+  onComplete: (isEnabled: boolean, hour: number) => Promise<void>;
+}
 
-export default function AlarmSetup({ onClose, onComplete }) {
+export default function AlarmSetup({ onClose, onComplete }: AlarmSetupProps) {
+  const router = useRouter();
   const [alarmEnabled, setAlarmEnabled] = useState(true);
   const [alarmHour, setAlarmHour] = useState(9); // 기본 9시
   const [showHourPicker, setShowHourPicker] = useState(false);
 
-  const handleHourSelect = (hour) => {
+  const hours = Array.from({ length: 24 }, (_, i) => i);
+
+  const handleHourSelect = (hour: number) => {
     setAlarmHour(hour);
     setShowHourPicker(false);
   };
 
-  const getHourLabel = (hour) => {
+  const getHourLabel = (hour: number) => {
     const ampm = hour < 12 ? '오전' : '오후';
     const hour12 = hour % 12 === 0 ? 12 : hour % 12;
     return `${ampm} ${hour12}시`;
+  };
+
+  const handleComplete = async () => {
+    if (onComplete) {
+      await onComplete(alarmEnabled, alarmHour);
+    }
   };
 
   return (
@@ -85,7 +98,7 @@ export default function AlarmSetup({ onClose, onComplete }) {
       {/* 설정 완료 버튼 */}
       <TouchableOpacity
         style={styles.completeBtn}
-        onPress={() => onComplete && onComplete(alarmEnabled, alarmHour)}
+        onPress={handleComplete}
       >
         <Text style={styles.completeBtnText}>설정 완료</Text>
       </TouchableOpacity>
@@ -225,12 +238,20 @@ const styles = StyleSheet.create({
     fontSize: 16
   },
   modalOverlay: {
-    flex: 1, backgroundColor: 'rgba(0,0,0,0.2)', justifyContent: 'center', alignItems: 'center'
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.2)',
+    justifyContent: 'center',
+    alignItems: 'center'
   },
   modalContent: {
-    backgroundColor: '#fff', borderRadius: 12, padding: 16, width: 220, maxHeight: 400
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 16,
+    width: 220,
+    maxHeight: 400
   },
   hourItem: {
-    paddingVertical: 10, alignItems: 'center'
+    paddingVertical: 10,
+    alignItems: 'center'
   }
 }); 

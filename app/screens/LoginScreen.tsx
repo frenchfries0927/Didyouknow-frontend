@@ -57,7 +57,7 @@ export default function LoginScreen() {
     return (
       <AlarmSetup
         onClose={() => setShowAlarmSetup(false)}
-        onComplete={() => {
+        onComplete={async (isEnabled, hour) => {
           setShowAlarmSetup(false);
           // 회원가입 완료 후 이동 등 추가 가능
         }}

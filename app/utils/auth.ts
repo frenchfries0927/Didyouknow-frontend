@@ -82,7 +82,7 @@ export const useGoogleAuth = () => {
           console.log('Backend response:', response);
           
           if (response?.code === 200 && response?.data) {
-            const { token, user } = response.data;
+            const { token, user, requiresProfile } = response.data;
             console.log('Token received:', token ? 'Yes' : 'No');
             console.log('User data received:', user ? 'Yes' : 'No');
             
@@ -108,24 +108,24 @@ export const useGoogleAuth = () => {
                 
                 if (storedToken && storedUser) {
                   console.log('Successfully verified stored data');
-                  return true;
+                  return { success: true, requiresProfile };
                 } else {
                   console.log('Storage verification failed');
-                  return false;
+                  return { success: false, requiresProfile: false };
                 }
               }
             } catch (storageError) {
               console.error('Error storing data in AsyncStorage:', storageError);
-              return false;
+              return { success: false, requiresProfile: false };
             }
           }
           console.log('Invalid response structure:', response);
         }
       }
-      return false;
+      return { success: false, requiresProfile: false };
     } catch (error) {
       console.error('Error signing in:', error);
-      return false;
+      return { success: false, requiresProfile: false };
     }
   };
 
