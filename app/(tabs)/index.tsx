@@ -36,6 +36,7 @@ export default function FeedScreen() {
   const [selectedOptions, setSelectedOptions] = useState<Record<number, number>>({});
   const [likedFeeds, setLikedFeeds] = useState<Record<number, boolean>>({});
   const [refreshing, setRefreshing] = useState(false);
+  const [imageErrors, setImageErrors] = useState<{[key: number]: boolean}>({});
 
   useEffect(() => {
     fetchFeeds();
@@ -281,8 +282,20 @@ export default function FeedScreen() {
     }
   };
 
+  const handleImageError = (feedId: number) => {
+    setImageErrors(prev => ({...prev, [feedId]: true}));
+  };
+
+  // 타임스탬프 제거 함수 추가
+  const removeTimestamp = (title: string) => {
+    if (!title) return title;
+    // 괄호와 그 안의 숫자를 찾아서 제거하는 정규식
+    return title.replace(/\s*\(\d+\)$/, '');
+  };
+
   const renderFeedItem = (feed: FeedItem, index: number) => {
     const isKnowledge = feed.type === 'knowledge';
+    const hasImageError = imageErrors[feed.id];
     
     return (
       <View key={`feed-${feed.id}-${index}`} style={styles.feedCard}>
@@ -290,8 +303,12 @@ export default function FeedScreen() {
         <View style={styles.postHeader}>
           <View style={styles.postHeaderLeft}>
             <Image 
-              source={{ uri: feed.authorProfileImageUrl || 'https://ui-avatars.com/api/?name=' + (feed.authorNickname || '알+수+없음') }} 
-              style={styles.profileImage} 
+              source={{ 
+                uri: feed.authorProfileImageUrl || 
+                  'https://ui-avatars.com/api/?name=' + encodeURIComponent(feed.authorNickname || '알+수+없음') 
+              }} 
+              style={styles.profileImage}
+              onError={() => console.log('프로필 이미지 로딩 오류')} 
             />
             <View style={styles.headerTextContainer}>
               <View style={styles.authorRow}>
@@ -317,20 +334,29 @@ export default function FeedScreen() {
 
         {/* 게시물 내용 */}
         <View style={styles.postContent}>
-          {isKnowledge ? (
-            <Text style={styles.contentText}>{feed.content}</Text>
-          ) : (
-            <Text style={styles.quizTitle}>{feed.title}</Text>
-          )}
+          {/* 제목 (모든 포스트 타입에 표시) */}
+          <Text style={styles.postTitle}>{removeTimestamp(feed.title)}</Text>
           
           {/* 게시물 이미지 */}
           <View style={styles.imageContainer}>
-            <Image 
-              source={{ uri: feed.imageUrl || 'https://via.placeholder.com/375x200' }} 
-              style={styles.feedImage} 
-              resizeMode="cover"
-            />
+            <View style={styles.imagePlaceholder}>
+              <Image 
+                source={{ 
+                  uri: (!hasImageError && feed.imageUrl) ? 
+                    feed.imageUrl : 
+                    `https://picsum.photos/seed/${feed.id}/400/240`
+                }} 
+                style={styles.feedImage} 
+                resizeMode="cover"
+                onError={() => handleImageError(feed.id)}
+              />
+            </View>
           </View>
+          
+          {/* Knowledge Post 내용 */}
+          {isKnowledge && (
+            <Text style={styles.contentText}>{feed.content}</Text>
+          )}
           
           {/* 퀴즈 옵션 */}
           {!isKnowledge && feed.options && (
@@ -344,7 +370,10 @@ export default function FeedScreen() {
                   ]}
                   onPress={() => selectOption(feed.id, index)}
                 >
-                  <Text style={styles.optionText}>
+                  <Text style={[
+                    styles.optionText,
+                    selectedOptions[feed.id] === index && styles.selectedOptionText
+                  ]}>
                     {`${index + 1}) ${option}`}
                   </Text>
                 </TouchableOpacity>
@@ -357,13 +386,6 @@ export default function FeedScreen() {
                 </View>
               )}
             </View>
-          )}
-          
-          {/* 지식 추가 콘텐츠 */}
-          {isKnowledge && feed.content && (
-            <Text style={styles.additionalContent}>
-              커피의 향은 로스팅 과정에서 생성되며, 이 과정에서 약 800가지의 향 화합물이 만들어집니다. 이것이 커피가 세계에서 가장 복잡한 향을 가진 음료 중 하나로 여겨지는 이유입니다.
-            </Text>
           )}
         </View>
 
@@ -615,50 +637,59 @@ const styles = StyleSheet.create({
   postContent: {
     padding: 16,
   },
-  contentText: {
-    fontSize: 14,
+  postTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
     color: '#333',
     marginBottom: 12,
-    lineHeight: 20,
   },
-  quizTitle: {
-    fontSize: 16,
-    fontWeight: '500',
+  contentText: {
+    fontSize: 15,
     color: '#333',
-    marginBottom: 12,
+    marginTop: 12,
+    lineHeight: 22,
   },
   imageContainer: {
+    marginTop: 8,
     marginBottom: 12,
-    borderRadius: 8,
+    borderRadius: 12,
     overflow: 'hidden',
+    height: 200,
+  },
+  imagePlaceholder: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: '#f0f0f0',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   feedImage: {
     width: '100%',
-    height: 200,
-  },
-  additionalContent: {
-    fontSize: 13,
-    color: '#555',
-    marginTop: 8,
-    lineHeight: 18,
+    height: '100%',
   },
   optionsContainer: {
-    marginTop: 8,
+    marginTop: 16,
   },
   optionButton: {
-    padding: 12,
-    backgroundColor: '#f5f5f5',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    backgroundColor: '#f0f0f0',
     borderRadius: 8,
     marginBottom: 8,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
   },
   selectedOption: {
-    backgroundColor: 'rgba(78, 205, 196, 0.2)',
-    borderWidth: 1,
-    borderColor: '#4ECDC4',
+    backgroundColor: '#4ECDC4',
+    borderColor: '#2ABD9F',
   },
   optionText: {
-    fontSize: 14,
+    fontSize: 15,
     color: '#333',
+  },
+  selectedOptionText: {
+    color: 'white',
+    fontWeight: 'bold',
   },
   hintContainer: {
     backgroundColor: 'rgba(78, 205, 196, 0.1)',
