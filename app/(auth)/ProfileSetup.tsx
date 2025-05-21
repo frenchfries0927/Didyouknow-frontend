@@ -1,14 +1,34 @@
 import { Ionicons } from '@expo/vector-icons';
-import React, { useState } from 'react';
+import { useNavigation, useRouter } from 'expo-router';
+import React, { useLayoutEffect, useState } from 'react';
 import { Image, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
-export default function ProfileSetup({ onClose, onNext }) {
+interface ProfileSetupProps {
+  onClose: () => void;
+  onNext: (nickname: string, profileImage: string | null) => void | Promise<void>;
+}
+
+export const options = { headerShown: false };
+
+export default function ProfileSetup({ onClose, onNext }: ProfileSetupProps) {
+  const router = useRouter();
+  const navigation = useNavigation();
   const [nickname, setNickname] = useState('');
-  const [profileImage, setProfileImage] = useState(null);
+  const [profileImage, setProfileImage] = useState<string | null>(null);
+
+  useLayoutEffect(() => {
+    navigation.setOptions({ headerShown: false });
+  }, [navigation]);
 
   // 실제로는 이미지 업로드 로직 필요
   const handleImagePick = () => {
     // 이미지 선택 로직
+  };
+
+  const handleNext = async () => {
+    if (onNext) {
+      await onNext(nickname, profileImage);
+    }
   };
 
   return (
@@ -53,7 +73,7 @@ export default function ProfileSetup({ onClose, onNext }) {
       {/* 다음 버튼 */}
       <TouchableOpacity
         style={[styles.nextBtn, { backgroundColor: nickname ? '#FF5A5F' : '#eee' }]}
-        onPress={() => onNext && onNext(nickname, profileImage)}
+        onPress={handleNext}
         disabled={!nickname}
       >
         <Text style={styles.nextBtnText}>다음  <Ionicons name="arrow-forward" size={16} color="#fff" /></Text>
