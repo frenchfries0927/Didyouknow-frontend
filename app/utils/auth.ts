@@ -9,7 +9,7 @@ const webClientId = "917819112239-aq416kciqn8lvj0ct4jqvl4ov6h5gvcu.apps.googleus
 const androidClientId = "917819112239-jt7leg7kfjn28mo18p95padp61pelt62.apps.googleusercontent.com";
 
 // Backend API URL
-const API_URL = 'http://172.30.1.88:8080'; // 개발 컴퓨터 IP 주소
+const API_URL = 'http://localhost:8080'; // 로컬 개발 서버
 
 // Verify JWT with backend
 const verifyToken = async (token: string) => {

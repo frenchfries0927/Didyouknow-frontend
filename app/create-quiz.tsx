@@ -10,7 +10,7 @@ import * as ImagePicker from 'expo-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 
-const API_URL = 'http://172.30.1.88:8080';
+const API_URL = 'http://localhost:8080';
 
 export default function CreateQuizScreen() {
   const router = useRouter();
@@ -159,7 +159,8 @@ export default function CreateQuizScreen() {
         {
           headers: {
             'Content-Type': 'multipart/form-data',
-          }
+          },
+          withCredentials: true // CORS 요청에 쿠키 포함
         }
       );
       
