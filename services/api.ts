@@ -45,6 +45,13 @@ export type UserPost = {
   imageUrls: string[];
 };
 
+export type FollowUser = {
+  userId: number;
+  nickname: string;
+  profileImageUrl: string;
+  isFollowing?: boolean;
+};
+
 // 개발 환경에서는 localhost를 사용하지만, 실제 기기에서는 IP 주소가 필요할 수 있습니다.
 // iOS 시뮬레이터: 'http://localhost:8080'
 // 안드로이드 에뮬레이터: 'http://10.0.2.2:8080'
@@ -203,6 +210,101 @@ export const userApi = {
       return response.data as UserPost[];
     } catch (error) {
       console.error('내 게시물 조회 실패:', error);
+      throw error;
+    }
+  },
+
+  // 사용자 검색
+  searchUsers: async (keyword: string): Promise<FollowUser[]> => {
+    try {
+      const response = await api.get(`/api/users/search?keyword=${encodeURIComponent(keyword)}`);
+      // 백엔드 응답을 프론트엔드 타입에 맞게 변환
+      return response.data.map((user: any) => ({
+        userId: user.id,
+        nickname: user.nickname,
+        profileImageUrl: user.profileImageUrl,
+        isFollowing: user.isFollowing
+      })) as FollowUser[];
+    } catch (error) {
+      console.error('사용자 검색 실패:', error);
+      throw error;
+    }
+  }
+};
+
+// 팔로우 API
+export const followApi = {
+  // 팔로우하기
+  follow: async (targetUserId: number): Promise<void> => {
+    try {
+      await api.post(`/api/follows/${targetUserId}`);
+    } catch (error) {
+      console.error('팔로우 실패:', error);
+      throw error;
+    }
+  },
+
+  // 언팔로우하기
+  unfollow: async (targetUserId: number): Promise<void> => {
+    try {
+      await api.delete(`/api/follows/${targetUserId}`);
+    } catch (error) {
+      console.error('언팔로우 실패:', error);
+      throw error;
+    }
+  },
+
+  // 팔로우 상태 확인
+  checkFollowStatus: async (targetUserId: number): Promise<boolean> => {
+    try {
+      const response = await api.get(`/api/follows/check/${targetUserId}`);
+      return response.data as boolean;
+    } catch (error) {
+      console.error('팔로우 상태 확인 실패:', error);
+      throw error;
+    }
+  },
+
+  // 내 팔로워 목록
+  getMyFollowers: async (): Promise<FollowUser[]> => {
+    try {
+      const response = await api.get('/api/follows/me/followers');
+      return response.data as FollowUser[];
+    } catch (error) {
+      console.error('팔로워 목록 조회 실패:', error);
+      throw error;
+    }
+  },
+
+  // 내 팔로잉 목록
+  getMyFollowing: async (): Promise<FollowUser[]> => {
+    try {
+      const response = await api.get('/api/follows/me/following');
+      return response.data as FollowUser[];
+    } catch (error) {
+      console.error('팔로잉 목록 조회 실패:', error);
+      throw error;
+    }
+  },
+
+  // 특정 사용자의 팔로워 목록
+  getUserFollowers: async (userId: number): Promise<FollowUser[]> => {
+    try {
+      const response = await api.get(`/api/follows/${userId}/followers`);
+      return response.data as FollowUser[];
+    } catch (error) {
+      console.error('사용자 팔로워 목록 조회 실패:', error);
+      throw error;
+    }
+  },
+
+  // 특정 사용자의 팔로잉 목록
+  getUserFollowing: async (userId: number): Promise<FollowUser[]> => {
+    try {
+      const response = await api.get(`/api/follows/${userId}/following`);
+      return response.data as FollowUser[];
+    } catch (error) {
+      console.error('사용자 팔로잉 목록 조회 실패:', error);
       throw error;
     }
   }

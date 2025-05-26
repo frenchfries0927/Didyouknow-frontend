@@ -71,9 +71,11 @@ export default function ProfilePage() {
       <View style={styles.topBar}>
         <Ionicons name="chevron-back" size={24} color="#222" />
         <Text style={styles.topBarTitle}>프로필</Text>
-        <TouchableOpacity onPress={() => router.push('/settings')}>
-          <Ionicons name="settings-outline" size={22} color="#222" />
-        </TouchableOpacity>
+        <View style={styles.topBarActions}>
+          <TouchableOpacity onPress={() => router.push('/settings')}>
+            <Ionicons name="settings-outline" size={22} color="#222" />
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* 프로필 정보 */}
@@ -106,14 +108,20 @@ export default function ProfilePage() {
           <Text style={styles.statNumber}>{profile.postsCount}</Text>
           <Text style={styles.statLabel}>게시물</Text>
         </View>
-        <View style={styles.statItem}>
+        <TouchableOpacity 
+          style={styles.statItem}
+          onPress={() => router.push('/followers')}
+        >
           <Text style={styles.statNumber}>{profile.followersCount.toLocaleString()}</Text>
           <Text style={styles.statLabel}>팔로워</Text>
-        </View>
-        <View style={styles.statItem}>
+        </TouchableOpacity>
+        <TouchableOpacity 
+          style={styles.statItem}
+          onPress={() => router.push('/following')}
+        >
           <Text style={styles.statNumber}>{profile.followingCount}</Text>
           <Text style={styles.statLabel}>팔로잉</Text>
-        </View>
+        </TouchableOpacity>
       </View>
 
       {/* 탭 메뉴 */}
@@ -210,6 +218,10 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: 'bold',
     color: '#222'
+  },
+  topBarActions: {
+    flexDirection: 'row',
+    alignItems: 'center'
   },
   profileRow: {
     flexDirection: 'row',
