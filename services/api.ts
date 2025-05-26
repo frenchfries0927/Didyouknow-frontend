@@ -25,6 +25,26 @@ export type Comment = {
   likes: number;
 };
 
+export type UserProfile = {
+  id: number;
+  email: string;
+  nickname: string;
+  profileImageUrl: string;
+  postsCount: number;
+  followersCount: number;
+  followingCount: number;
+  hasBadge: boolean;
+};
+
+export type UserPost = {
+  id: number;
+  title: string;
+  content: string;
+  authorNickname: string;
+  publishDate: string;
+  imageUrls: string[];
+};
+
 // 개발 환경에서는 localhost를 사용하지만, 실제 기기에서는 IP 주소가 필요할 수 있습니다.
 // iOS 시뮬레이터: 'http://localhost:8080'
 // 안드로이드 에뮬레이터: 'http://10.0.2.2:8080'
@@ -45,7 +65,7 @@ api.interceptors.request.use(
   async (config) => {
     // JWT 토큰이 있다면 요청 헤더에 추가
     try {
-      const token = await AsyncStorage.getItem('jwt');
+      const token = await AsyncStorage.getItem('@jwt');
       if (token && config.headers) {
         config.headers.Authorization = `Bearer ${token}`;
       }
@@ -158,6 +178,31 @@ export const feedApi = {
       return response.data;
     } catch (error) {
       console.error(`답변 제출 실패:`, error);
+      throw error;
+    }
+  }
+};
+
+// 사용자 프로필 API
+export const userApi = {
+  // 내 프로필 조회
+  getMyProfile: async (): Promise<UserProfile> => {
+    try {
+      const response = await api.get('/api/users/me/profile');
+      return response.data as UserProfile;
+    } catch (error) {
+      console.error('프로필 조회 실패:', error);
+      throw error;
+    }
+  },
+
+  // 내 게시물 조회
+  getMyPosts: async (): Promise<UserPost[]> => {
+    try {
+      const response = await api.get('/api/users/me/posts');
+      return response.data as UserPost[];
+    } catch (error) {
+      console.error('내 게시물 조회 실패:', error);
       throw error;
     }
   }
