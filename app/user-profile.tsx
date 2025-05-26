@@ -1,35 +1,66 @@
-// app/(tabs)/profile.tsx
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { FlatList, Image, StyleSheet, Text, TouchableOpacity, View, ActivityIndicator, Alert } from 'react-native';
-import { userApi, UserProfile, UserPost } from '../../services/api';
+import { userApi, followApi, UserProfile, UserPost } from '../services/api';
 
-export default function ProfilePage() {
+export default function UserProfilePage() {
   const router = useRouter();
+  const { userId } = useLocalSearchParams();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [posts, setPosts] = useState<UserPost[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'posts' | 'likes' | 'bookmarks'>('posts');
+  const [isFollowing, setIsFollowing] = useState(false);
+  const [followLoading, setFollowLoading] = useState(false);
 
   useEffect(() => {
-    loadProfileData();
-  }, []);
+    if (userId) {
+      loadUserProfile();
+      checkFollowStatus();
+    }
+  }, [userId]);
 
-  const loadProfileData = async () => {
+  const loadUserProfile = async () => {
     try {
       setLoading(true);
-      const [profileData, postsData] = await Promise.all([
-        userApi.getMyProfile(),
-        userApi.getMyPosts()
-      ]);
+      const profileData = await userApi.getUserProfile(Number(userId));
+      const postsData = await userApi.getUserPosts(Number(userId));
       setProfile(profileData);
       setPosts(postsData);
     } catch (error) {
-      console.error('프로필 데이터 로딩 실패:', error);
-      Alert.alert('오류', '프로필 정보를 불러오는데 실패했습니다.');
+      console.error('사용자 프로필 로딩 실패:', error);
+      Alert.alert('오류', '사용자 프로필을 불러오는데 실패했습니다.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const checkFollowStatus = async () => {
+    try {
+      const status = await followApi.checkFollowStatus(Number(userId));
+      setIsFollowing(status);
+    } catch (error) {
+      console.error('팔로우 상태 확인 실패:', error);
+    }
+  };
+
+  const handleFollowToggle = async () => {
+    try {
+      setFollowLoading(true);
+      if (isFollowing) {
+        await followApi.unfollow(Number(userId));
+        setIsFollowing(false);
+        Alert.alert('성공', '언팔로우 되었습니다.');
+      } else {
+        await followApi.follow(Number(userId));
+        setIsFollowing(true);
+        Alert.alert('성공', '팔로우 되었습니다.');
+      }
+    } catch (error) {
+      console.error('팔로우 토글 실패:', error);
+      Alert.alert('오류', '팔로우 상태 변경에 실패했습니다.');
+    } finally {
+      setFollowLoading(false);
     }
   };
 
@@ -39,7 +70,14 @@ export default function ProfilePage() {
       onPress={() => router.push(`/post-detail?postId=${item.id}`)}
     >
       {item.imageUrls && item.imageUrls.length > 0 ? (
-        <Image source={{ uri: item.imageUrls[0] }} style={styles.postImage} />
+        <Image 
+          source={{ uri: item.imageUrls[0] }} 
+          style={styles.postImage}
+          onError={() => {
+            // 이미지 로딩 실패 시 아무것도 하지 않음 (fallback은 아래에서 처리)
+          }}
+          defaultSource={{ uri: 'https://via.placeholder.com/150x150/f0f0f0/999999?text=No+Image' }}
+        />
       ) : (
         <View style={[styles.postImage, styles.noImagePost]}>
           <Text style={styles.postTitle} numberOfLines={2}>{item.title}</Text>
@@ -61,7 +99,7 @@ export default function ProfilePage() {
     return (
       <View style={[styles.container, styles.centered]}>
         <Text style={styles.errorText}>프로필 정보를 불러올 수 없습니다.</Text>
-        <TouchableOpacity style={styles.retryButton} onPress={loadProfileData}>
+        <TouchableOpacity style={styles.retryButton} onPress={loadUserProfile}>
           <Text style={styles.retryButtonText}>다시 시도</Text>
         </TouchableOpacity>
       </View>
@@ -72,13 +110,11 @@ export default function ProfilePage() {
     <View style={styles.container}>
       {/* 상단 바 */}
       <View style={styles.topBar}>
-        <Ionicons name="chevron-back" size={24} color="#222" />
-        <Text style={styles.topBarTitle}>프로필</Text>
-        <View style={styles.topBarActions}>
-          <TouchableOpacity onPress={() => router.push('/settings')}>
-            <Ionicons name="settings-outline" size={22} color="#222" />
-          </TouchableOpacity>
-        </View>
+        <TouchableOpacity onPress={() => router.back()}>
+          <Ionicons name="chevron-back" size={24} color="#222" />
+        </TouchableOpacity>
+        <Text style={styles.topBarTitle}>{profile.nickname}</Text>
+        <View style={{ width: 24 }} />
       </View>
 
       {/* 프로필 정보 */}
@@ -100,8 +136,24 @@ export default function ProfilePage() {
           <Text style={styles.username}>{profile.nickname}</Text>
           <Text style={styles.userEmail}>{profile.email}</Text>
         </View>
-        <TouchableOpacity style={styles.editButton}>
-          <Text style={styles.editButtonText}>프로필 편집</Text>
+        <TouchableOpacity 
+          style={[
+            styles.followButton,
+            isFollowing && styles.followingButton
+          ]}
+          onPress={handleFollowToggle}
+          disabled={followLoading}
+        >
+          {followLoading ? (
+            <ActivityIndicator size="small" color={isFollowing ? "#FF5A5F" : "#fff"} />
+          ) : (
+            <Text style={[
+              styles.followButtonText,
+              isFollowing && styles.followingButtonText
+            ]}>
+              {isFollowing ? '팔로잉' : '팔로우'}
+            </Text>
+          )}
         </TouchableOpacity>
       </View>
 
@@ -111,88 +163,36 @@ export default function ProfilePage() {
           <Text style={styles.statNumber}>{profile.postsCount}</Text>
           <Text style={styles.statLabel}>게시물</Text>
         </View>
-        <TouchableOpacity 
-          style={styles.statItem}
-          onPress={() => router.push('/followers')}
-        >
+        <View style={styles.statItem}>
           <Text style={styles.statNumber}>{profile.followersCount.toLocaleString()}</Text>
           <Text style={styles.statLabel}>팔로워</Text>
-        </TouchableOpacity>
-        <TouchableOpacity 
-          style={styles.statItem}
-          onPress={() => router.push('/following')}
-        >
+        </View>
+        <View style={styles.statItem}>
           <Text style={styles.statNumber}>{profile.followingCount}</Text>
           <Text style={styles.statLabel}>팔로잉</Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* 탭 메뉴 */}
-      <View style={styles.tabBar}>
-        <TouchableOpacity 
-          style={[styles.tab, activeTab === 'posts' && styles.activeTab]}
-          onPress={() => setActiveTab('posts')}
-        >
-          <Ionicons 
-            name="grid-outline" 
-            size={22} 
-            color={activeTab === 'posts' ? "#FF5A5F" : "#888"} 
-          />
-        </TouchableOpacity>
-        <TouchableOpacity 
-          style={[styles.tab, activeTab === 'likes' && styles.activeTab]}
-          onPress={() => setActiveTab('likes')}
-        >
-          <Ionicons 
-            name="heart-outline" 
-            size={22} 
-            color={activeTab === 'likes' ? "#FF5A5F" : "#888"} 
-          />
-        </TouchableOpacity>
-        <TouchableOpacity 
-          style={[styles.tab, activeTab === 'bookmarks' && styles.activeTab]}
-          onPress={() => setActiveTab('bookmarks')}
-        >
-          <Ionicons 
-            name="bookmark-outline" 
-            size={22} 
-            color={activeTab === 'bookmarks' ? "#FF5A5F" : "#888"} 
-          />
-        </TouchableOpacity>
+        </View>
       </View>
 
       {/* 게시물 그리드 */}
-      {activeTab === 'posts' && (
-        <FlatList
-          data={posts}
-          numColumns={3}
-          renderItem={renderPostItem}
-          keyExtractor={item => item.id.toString()}
-          contentContainerStyle={{ paddingBottom: 20 }}
-          showsVerticalScrollIndicator={false}
-          ListEmptyComponent={
-            <View style={styles.emptyContainer}>
-              <Ionicons name="camera-outline" size={48} color="#ccc" />
-              <Text style={styles.emptyText}>아직 게시물이 없습니다</Text>
-              <Text style={styles.emptySubText}>첫 번째 게시물을 작성해보세요!</Text>
-            </View>
-          }
-        />
-      )}
+      <View style={styles.postsHeader}>
+        <Ionicons name="grid-outline" size={22} color="#222" />
+        <Text style={styles.postsHeaderText}>게시물</Text>
+      </View>
 
-      {activeTab === 'likes' && (
-        <View style={styles.emptyContainer}>
-          <Ionicons name="heart-outline" size={48} color="#ccc" />
-          <Text style={styles.emptyText}>좋아요한 게시물이 없습니다</Text>
-        </View>
-      )}
-
-      {activeTab === 'bookmarks' && (
-        <View style={styles.emptyContainer}>
-          <Ionicons name="bookmark-outline" size={48} color="#ccc" />
-          <Text style={styles.emptyText}>북마크한 게시물이 없습니다</Text>
-        </View>
-      )}
+      <FlatList
+        data={posts}
+        numColumns={3}
+        renderItem={renderPostItem}
+        keyExtractor={item => item.id.toString()}
+        contentContainerStyle={{ paddingBottom: 20 }}
+        showsVerticalScrollIndicator={false}
+        ListEmptyComponent={
+          <View style={styles.emptyContainer}>
+            <Ionicons name="camera-outline" size={48} color="#ccc" />
+            <Text style={styles.emptyText}>게시물이 없습니다</Text>
+          </View>
+        }
+      />
     </View>
   );
 }
@@ -221,10 +221,6 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: 'bold',
     color: '#222'
-  },
-  topBarActions: {
-    flexDirection: 'row',
-    alignItems: 'center'
   },
   profileRow: {
     flexDirection: 'row',
@@ -260,24 +256,32 @@ const styles = StyleSheet.create({
     color: '#888',
     marginTop: 2
   },
-  editButton: {
+  followButton: {
+    backgroundColor: '#FF5A5F',
+    borderRadius: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    minWidth: 80,
+    alignItems: 'center'
+  },
+  followingButton: {
     backgroundColor: '#fff',
     borderWidth: 1,
-    borderColor: '#FF5A5F',
-    borderRadius: 6,
-    paddingVertical: 6,
-    paddingHorizontal: 14
+    borderColor: '#FF5A5F'
   },
-  editButtonText: {
-    color: '#FF5A5F',
+  followButtonText: {
+    color: '#fff',
     fontWeight: 'bold',
-    fontSize: 13
+    fontSize: 14
+  },
+  followingButtonText: {
+    color: '#FF5A5F'
   },
   statsRow: {
     flexDirection: 'row',
     justifyContent: 'space-around',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 16,
     marginTop: 2
   },
   statItem: {
@@ -294,23 +298,20 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#888'
   },
-  tabBar: {
+  postsHeader: {
     flexDirection: 'row',
-    borderBottomWidth: 1,
-    borderBottomColor: '#F2F2F2',
-    backgroundColor: '#fff',
-    marginBottom: 2
-  },
-  tab: {
-    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 10,
-    borderBottomWidth: 2,
-    borderBottomColor: 'transparent'
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F2F2F2',
+    marginBottom: 2
   },
-  activeTab: {
-    borderBottomColor: '#FF5A5F',
+  postsHeaderText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#222',
+    marginLeft: 4
   },
   postImageContainer: {
     width: '33.33%',
@@ -377,10 +378,5 @@ const styles = StyleSheet.create({
     color: '#666',
     marginTop: 16,
     fontWeight: '500'
-  },
-  emptySubText: {
-    fontSize: 14,
-    color: '#999',
-    marginTop: 4
   }
-});
+}); 
