@@ -65,7 +65,10 @@ export default function UserProfilePage() {
   };
 
   const renderPostItem = ({ item }: { item: UserPost }) => (
-    <View style={styles.postImageContainer}>
+    <TouchableOpacity 
+      style={styles.postImageContainer}
+      onPress={() => router.push(`/post-detail?postId=${item.id}`)}
+    >
       {item.imageUrls && item.imageUrls.length > 0 ? (
         <Image 
           source={{ uri: item.imageUrls[0] }} 
@@ -80,7 +83,7 @@ export default function UserProfilePage() {
           <Text style={styles.postTitle} numberOfLines={2}>{item.title}</Text>
         </View>
       )}
-    </View>
+    </TouchableOpacity>
   );
 
   if (loading) {

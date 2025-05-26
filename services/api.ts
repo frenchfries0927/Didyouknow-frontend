@@ -229,6 +229,39 @@ export const userApi = {
       console.error('사용자 검색 실패:', error);
       throw error;
     }
+  },
+
+  // 특정 사용자 프로필 조회
+  getUserProfile: async (userId: number): Promise<UserProfile> => {
+    try {
+      const response = await api.get(`/api/users/${userId}/profile`);
+      return response.data as UserProfile;
+    } catch (error) {
+      console.error('사용자 프로필 조회 실패:', error);
+      throw error;
+    }
+  },
+
+  // 특정 사용자 게시물 조회
+  getUserPosts: async (userId: number): Promise<UserPost[]> => {
+    try {
+      const response = await api.get(`/api/users/${userId}/posts`);
+      return response.data as UserPost[];
+    } catch (error) {
+      console.error('사용자 게시물 조회 실패:', error);
+      throw error;
+    }
+  },
+
+  // 게시물 상세 조회
+  getPostDetail: async (postId: number): Promise<UserPost> => {
+    try {
+      const response = await api.get(`/api/posts/detail/${postId}`);
+      return response.data as UserPost;
+    } catch (error) {
+      console.error('게시물 상세 조회 실패:', error);
+      throw error;
+    }
   }
 };
 
