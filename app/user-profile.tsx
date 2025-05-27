@@ -160,15 +160,15 @@ export default function UserProfilePage() {
       {/* 통계 */}
       <View style={styles.statsRow}>
         <View style={styles.statItem}>
-          <Text style={styles.statNumber}>{profile.postsCount}</Text>
+          <Text style={styles.statNumber}>{profile.postsCount || 0}</Text>
           <Text style={styles.statLabel}>게시물</Text>
         </View>
         <View style={styles.statItem}>
-          <Text style={styles.statNumber}>{profile.followersCount.toLocaleString()}</Text>
+          <Text style={styles.statNumber}>{(profile.followersCount || 0).toLocaleString()}</Text>
           <Text style={styles.statLabel}>팔로워</Text>
         </View>
         <View style={styles.statItem}>
-          <Text style={styles.statNumber}>{profile.followingCount}</Text>
+          <Text style={styles.statNumber}>{profile.followingCount || 0}</Text>
           <Text style={styles.statLabel}>팔로잉</Text>
         </View>
       </View>
