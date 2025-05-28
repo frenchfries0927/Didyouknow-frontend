@@ -1,11 +1,11 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import axios, { AxiosError, AxiosRequestConfig } from 'axios';
+import axios from 'axios';
 
 // Android 에뮬레이터 기준: 10.0.2.2, 실제 기기에서는 로컬 IP 사용
 const API_BASE_URL = 'http://localhost:8080';
 
 // 커스텀 요청 타입: _retry 속성 추가
-interface RetryAxiosRequestConfig extends AxiosRequestConfig {
+interface RetryAxiosRequestConfig {
   _retry?: boolean;
 }
 
@@ -25,7 +25,7 @@ const api = axios.create({
 
 // 요청 인터셉터: AccessToken 자동 삽입
 api.interceptors.request.use(
-  async (config: AxiosRequestConfig) => {
+  async (config: any) => {
     const token = await AsyncStorage.getItem('@jwt');
     if (token) {
       config.headers = config.headers ?? {};
@@ -39,8 +39,8 @@ api.interceptors.request.use(
 // 응답 인터셉터: 401 → RefreshToken 사용해 재발급 → 재요청
 api.interceptors.response.use(
   (response) => response,
-  async (error: AxiosError) => {
-    const originalRequest = error.config as RetryAxiosRequestConfig;
+  async (error) => {
+    const originalRequest = error.config;
 
     // AccessToken 만료 + 아직 재시도 안 했을 때
     if (error.response?.status === 401 && !originalRequest._retry) {
