@@ -1,29 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Dimensions, Image, Modal, RefreshControl, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { Comment, feedApi } from '../../services/api';
+import { ActivityIndicator, Dimensions, Modal, RefreshControl, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import FeedCard from '../components/FeedCard';
+import { feedApi } from '../services/api/endpoints/feed';
+import { Comment, FeedItem } from '../services/api/types';
 
 // 화면 너비 가져오기
 const { width } = Dimensions.get('window');
-
-// API 베이스 URL - 개발 환경
-const API_BASE_URL = 'http://10.0.2.2:8080';
-
-// FeedItem 타입 정의
-type FeedItem = {
-  id: number;
-  type: 'knowledge' | 'quiz';
-  title: string;
-  content: string;
-  imageUrl: string | null;
-  authorNickname: string;
-  authorProfileImageUrl: string;
-  createdAt: string;
-  options?: string[];
-  hint?: string;
-  likes: number;
-  comments: number;
-};
 
 export default function FeedScreen() {
   const [feeds, setFeeds] = useState<FeedItem[]>([]);
@@ -48,20 +31,21 @@ export default function FeedScreen() {
     
     try {
       // 실제 API 호출
-      const data = await feedApi.getFeeds();
-      console.log('API 응답 데이터:', JSON.stringify(data, null, 2));
+      const response = await feedApi.getFeeds();
+      console.log('API 응답 데이터:', JSON.stringify(response, null, 2));
       
       // 필드명 매핑 처리 - API 응답 구조에 따라 authorNickname 필드 설정
-      const mappedData = data.map((item, index) => {
-        const anyItem = item as any;
+      const mappedData = response.data.map((item: FeedItem) => {
         return {
           ...item,
           // id는 숫자 유지
-          id: anyItem.id,
+          id: item.id,
           // API 응답에서는 authorNickname이 아닌 author로 제공됨
-          authorNickname: anyItem.author || anyItem.authorNickname || "알 수 없음",
+          authorNickname: (item as any).author || item.authorNickname || "알 수 없음",
           // API 응답에서는 authorProfileImageUrl이 아닌 profileImageUrl로 제공됨
-          authorProfileImageUrl: anyItem.profileImageUrl || anyItem.authorProfileImageUrl
+          authorProfileImageUrl: (item as any).profileImageUrl || item.authorProfileImageUrl,
+          // imageUrl이 null일 경우 빈 문자열로 처리
+          imageUrl: item.imageUrl || ''
         };
       });
       
@@ -69,7 +53,7 @@ export default function FeedScreen() {
       
       // 좋아요 상태 초기화
       const initialLikedState: Record<number, boolean> = {};
-      mappedData.forEach((feed) => {
+      mappedData.forEach((feed: FeedItem) => {
         initialLikedState[feed.id] = false;
       });
       
@@ -77,72 +61,7 @@ export default function FeedScreen() {
     } catch (err) {
       console.error('피드 불러오기 실패:', err);
       setError('피드를 불러오는 중 오류가 발생했습니다.');
-      
-      // 임시 데이터
-      const mockFeeds: FeedItem[] = [
-        {
-          id: 1,
-          type: 'knowledge',
-          title: '커피의 화학물질',
-          content: '우리가 매일 마시는 커피에는 약 1,000가지 이상의 화학 물질이 포함되어 있습니다. 그 중 절반 이상이 커피의 독특한 향을 만들어내는 역할을 합니다.',
-          imageUrl: 'https://readdy.ai/api/search-image?query=A%20cup%20of%20coffee%20on%20a%20wooden%20table%2C%20steam%20rising%2C%20morning%20light%2C%20high-quality%20detailed%20photo%2C%20coffee%20beans%20scattered%20around%2C%20warm%20tones%2C%20professional%20food%20photography%2C%20shallow%20depth%20of%20field&width=375&height=250&seq=1&orientation=landscape',
-          authorNickname: '민지혜',
-          authorProfileImageUrl: 'https://readdy.ai/api/search-image?query=professional%20headshot%20of%20a%20young%20asian%20woman%20smiling%2C%20natural%20lighting%2C%20clean%20background&width=40&height=40&seq=5&orientation=squarish',
-          createdAt: '2025-04-25T10:30:00',
-          likes: 238,
-          comments: 42
-        },
-        {
-          id: 2,
-          type: 'quiz',
-          title: '세계에서 가장 긴 강은 무엇일까요?',
-          content: '',
-          imageUrl: 'https://readdy.ai/api/search-image?query=Aerial%20view%20of%20a%20long%20winding%20river%20through%20lush%20landscape%2C%20blue%20water%20contrasting%20with%20green%20surroundings%2C%20high-quality%20drone%20photography%2C%20beautiful%20natural%20scenery%2C%20golden%20hour%20lighting%2C%20mist%20rising%20from%20water%2C%20professional%20nature%20photography&width=375&height=200&seq=2&orientation=landscape',
-          authorNickname: '박준서',
-          authorProfileImageUrl: 'https://readdy.ai/api/search-image?query=professional%20headshot%20of%20a%20young%20asian%20man%20smiling%2C%20natural%20lighting%2C%20clean%20background&width=40&height=40&seq=6&orientation=squarish',
-          createdAt: '2025-04-25T09:15:00',
-          options: ['아마존강', '나일강', '양쯔강', '미시시피강'],
-          hint: '이 강은 아프리카 대륙을 관통하며 흐릅니다.',
-          likes: 156,
-          comments: 89
-        },
-        {
-          id: 3,
-          type: 'knowledge',
-          title: '북극곰의 털',
-          content: '북극곰의 털은 실제로 하얀색이 아닙니다. 각 털은 투명한 중공 튜브로 되어 있어 빛을 반사하고 열을 가두는 역할을 합니다.',
-          imageUrl: 'https://readdy.ai/api/search-image?query=Polar%20bear%20in%20snowy%20environment%2C%20close-up%20showing%20fur%20detail%2C%20crystal%20clear%20ice%20background%2C%20professional%20wildlife%20photography%2C%20natural%20lighting%2C%20high%20detail%2C%20National%20Geographic%20style%2C%20majestic%20animal%20portrait&width=375&height=250&seq=3&orientation=landscape',
-          authorNickname: '김서연',
-          authorProfileImageUrl: 'https://readdy.ai/api/search-image?query=professional%20headshot%20of%20a%20mature%20asian%20woman%20smiling%2C%20natural%20lighting%2C%20clean%20background&width=40&height=40&seq=7&orientation=squarish',
-          createdAt: '2025-04-24T14:20:00',
-          likes: 312,
-          comments: 57
-        },
-        {
-          id: 4,
-          type: 'quiz',
-          title: '다음 중 노벨상이 수여되지 않는 분야는?',
-          content: '',
-          imageUrl: 'https://readdy.ai/api/search-image?query=Nobel%20Prize%20medal%20close-up%2C%20golden%20medal%20with%20ribbon%2C%20prestigious%20award%2C%20high-quality%20detailed%20photo%2C%20elegant%20display%2C%20dramatic%20lighting%2C%20professional%20photography%2C%20ceremonial%20setting&width=375&height=200&seq=4&orientation=landscape',
-          authorNickname: '이동현',
-          authorProfileImageUrl: 'https://readdy.ai/api/search-image?query=professional%20headshot%20of%20a%20young%20asian%20man%20with%20glasses%20smiling%2C%20natural%20lighting%2C%20clean%20background&width=40&height=40&seq=8&orientation=squarish',
-          createdAt: '2025-04-24T11:05:00',
-          options: ['경제학', '수학', '문학', '화학'],
-          hint: '이 분야는 필즈상이라는 별도의 권위 있는 상이 있습니다.',
-          likes: 185,
-          comments: 73
-        }
-      ];
-      
-      setFeeds(mockFeeds);
-      
-      // 좋아요 상태 초기화
-      const initialLikedState: Record<number, boolean> = {};
-      mockFeeds.forEach(feed => {
-        initialLikedState[feed.id] = false;
-      });
-      
-      setLikedFeeds(initialLikedState);
+      setFeeds([]);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -293,132 +212,6 @@ export default function FeedScreen() {
     return title.replace(/\s*\(\d+\)$/, '');
   };
 
-  const renderFeedItem = (feed: FeedItem, index: number) => {
-    const isKnowledge = feed.type === 'knowledge';
-    const hasImageError = imageErrors[feed.id];
-    
-    return (
-      <View key={`feed-${feed.id}-${index}`} style={styles.feedCard}>
-        {/* 게시물 헤더 */}
-        <View style={styles.postHeader}>
-          <View style={styles.postHeaderLeft}>
-            <Image 
-              source={{ 
-                uri: feed.authorProfileImageUrl || 
-                  'https://ui-avatars.com/api/?name=' + encodeURIComponent(feed.authorNickname || '알+수+없음') 
-              }} 
-              style={styles.profileImage}
-              onError={() => console.log('프로필 이미지 로딩 오류')} 
-            />
-            <View style={styles.headerTextContainer}>
-              <View style={styles.authorRow}>
-                <Text style={[styles.feedType, isKnowledge ? styles.knowledgeType : styles.quizType]}>
-                  {isKnowledge ? '그거 아세요?' : '맞춰보실래요?'}
-                </Text>
-                <Text style={styles.byText}>by</Text>
-                <Text style={styles.authorName}>{feed.authorNickname || '알 수 없음'}</Text>
-              </View>
-              <Text style={styles.createdAt}>
-                {new Date(feed.createdAt).toLocaleDateString('ko-KR', {
-                  year: 'numeric',
-                  month: 'long',
-                  day: 'numeric'
-                })}
-              </Text>
-            </View>
-          </View>
-          <TouchableOpacity style={styles.moreButton}>
-            <Ionicons name="ellipsis-vertical" size={20} color="#7d7d7d" />
-          </TouchableOpacity>
-        </View>
-
-        {/* 게시물 내용 */}
-        <View style={styles.postContent}>
-          {/* 제목 (모든 포스트 타입에 표시) */}
-          <Text style={styles.postTitle}>{removeTimestamp(feed.title)}</Text>
-          
-          {/* 게시물 이미지 */}
-          <View style={styles.imageContainer}>
-            <View style={styles.imagePlaceholder}>
-              <Image 
-                source={{ 
-                  uri: (!hasImageError && feed.imageUrl) ? 
-                    feed.imageUrl : 
-                    `https://picsum.photos/seed/${feed.id}/400/240`
-                }} 
-                style={styles.feedImage} 
-                resizeMode="cover"
-                onError={() => handleImageError(feed.id)}
-              />
-            </View>
-          </View>
-          
-          {/* Knowledge Post 내용 */}
-          {isKnowledge && (
-            <Text style={styles.contentText}>{feed.content}</Text>
-          )}
-          
-          {/* 퀴즈 옵션 */}
-          {!isKnowledge && feed.options && (
-            <View style={styles.optionsContainer}>
-              {feed.options.map((option, index) => (
-                <TouchableOpacity 
-                  key={index}
-                  style={[
-                    styles.optionButton,
-                    selectedOptions[feed.id] === index && styles.selectedOption
-                  ]}
-                  onPress={() => selectOption(feed.id, index)}
-                >
-                  <Text style={[
-                    styles.optionText,
-                    selectedOptions[feed.id] === index && styles.selectedOptionText
-                  ]}>
-                    {`${index + 1}) ${option}`}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-              
-              {/* 힌트 */}
-              {feed.hint && (
-                <View style={styles.hintContainer}>
-                  <Text style={styles.hintText}>{feed.hint}</Text>
-                </View>
-              )}
-            </View>
-          )}
-        </View>
-
-        {/* 게시물 액션 */}
-        <View style={styles.postActions}>
-          <View style={styles.leftActions}>
-            <TouchableOpacity 
-              style={styles.actionButton}
-              onPress={() => toggleLike(feed.id)}
-            >
-              <Ionicons 
-                name={likedFeeds[feed.id] ? "heart" : "heart-outline"} 
-                size={24} 
-                color={likedFeeds[feed.id] ? "#FF6B6B" : "#666"} 
-              />
-              <Text style={styles.actionCount}>{feed.likes}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity 
-              style={styles.actionButton}
-              onPress={() => openCommentModal(feed.id)}
-            >
-              <Ionicons name="chatbubble-outline" size={22} color="#666" />
-              <Text style={styles.actionCount}>{feed.comments}</Text>
-            </TouchableOpacity>
-          </View>
-          <TouchableOpacity style={styles.shareButton}>
-            <Ionicons name="share-outline" size={24} color="#666" />
-          </TouchableOpacity>
-        </View>
-      </View>
-    );
-  };
-
   const handleRefresh = () => {
     setRefreshing(true);
     fetchFeeds();
@@ -426,7 +219,7 @@ export default function FeedScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* 상단 네비게이션 바 복구 */}
+      {/* 상단 네비게이션 바 */}
       <View style={styles.navbar}>
         <Text style={styles.logoText}>logo</Text>
         <View style={styles.navbarRight}>
@@ -464,7 +257,17 @@ export default function FeedScreen() {
             </TouchableOpacity>
           </View>
         ) : (
-          feeds.map((feed, index) => renderFeedItem(feed, index))
+          feeds.map((feed) => (
+            <FeedCard
+              key={feed.id}
+              feed={feed}
+              liked={likedFeeds[feed.id]}
+              selectedOption={selectedOptions[feed.id]}
+              onLike={() => toggleLike(feed.id)}
+              onComment={() => openCommentModal(feed.id)}
+              onSelectOption={(index: number) => selectOption(feed.id, index)}
+            />
+          ))
         )}
       </ScrollView>
 
@@ -567,168 +370,36 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
   },
-  feedCard: {
+  navbar: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     backgroundColor: '#fff',
-    borderRadius: 8,
-    marginBottom: 16,
-    marginHorizontal: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+    elevation: 2,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
+    shadowRadius: 1,
   },
-  postHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
-  },
-  postHeaderLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  profileImage: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#f0f0f0',
-  },
-  headerTextContainer: {
-    marginLeft: 12,
-  },
-  authorRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  feedType: {
-    fontSize: 14,
-    fontWeight: '600',
-    marginRight: 6,
-  },
-  knowledgeType: {
+  logoText: {
+    fontSize: 20,
+    fontWeight: '700',
     color: '#FF6B6B',
   },
-  quizType: {
-    color: '#4ECDC4',
+  navbarRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
-  byText: {
-    fontSize: 14,
-    color: '#7d7d7d',
-    marginRight: 4,
-  },
-  authorName: {
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  createdAt: {
-    fontSize: 12,
-    color: '#7d7d7d',
-    marginTop: 2,
-  },
-  moreButton: {
+  navButton: {
     width: 32,
     height: 32,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  postContent: {
-    padding: 16,
-  },
-  postTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 12,
-  },
-  contentText: {
-    fontSize: 15,
-    color: '#333',
-    marginTop: 12,
-    lineHeight: 22,
-  },
-  imageContainer: {
-    marginTop: 8,
-    marginBottom: 12,
-    borderRadius: 12,
-    overflow: 'hidden',
-    height: 200,
-  },
-  imagePlaceholder: {
-    width: '100%',
-    height: '100%',
-    backgroundColor: '#f0f0f0',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  feedImage: {
-    width: '100%',
-    height: '100%',
-  },
-  optionsContainer: {
-    marginTop: 16,
-  },
-  optionButton: {
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    backgroundColor: '#f0f0f0',
-    borderRadius: 8,
-    marginBottom: 8,
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
-  },
-  selectedOption: {
-    backgroundColor: '#4ECDC4',
-    borderColor: '#2ABD9F',
-  },
-  optionText: {
-    fontSize: 15,
-    color: '#333',
-  },
-  selectedOptionText: {
-    color: 'white',
-    fontWeight: 'bold',
-  },
-  hintContainer: {
-    backgroundColor: 'rgba(78, 205, 196, 0.1)',
-    padding: 12,
-    borderRadius: 8,
-    marginTop: 4,
-  },
-  hintText: {
-    fontSize: 13,
-    color: '#555',
-  },
-  postActions: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#f0f0f0',
-  },
-  leftActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  actionButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginRight: 16,
-  },
-  actionCount: {
-    fontSize: 14,
-    color: '#666',
-    marginLeft: 4,
-  },
-  shareButton: {
-    width: 32,
-    height: 32,
-    justifyContent: 'center',
-    alignItems: 'center',
+    marginLeft: 16,
   },
   modalOverlay: {
     flex: 1,
@@ -836,37 +507,6 @@ const styles = StyleSheet.create({
   },
   disabledSendButton: {
     backgroundColor: '#ccc',
-  },
-  navbar: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 1,
-  },
-  logoText: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#FF6B6B',
-  },
-  navbarRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  navButton: {
-    width: 32,
-    height: 32,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginLeft: 16,
   },
 });
 

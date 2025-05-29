@@ -7,10 +7,10 @@ export const feedApi = {
     try {
       console.log('API 호출: /api/feed');
       const response = await api.get<ApiResponse<FeedItem[]>>('/api/feed');
-      console.log('API 응답:', response.data);
+      console.log('API 응답:', response);
       
       // 응답 데이터가 없거나 잘못된 형식인 경우
-      if (!response.data || !response.data.data) {
+      if (!response.data|| !Array.isArray(response.data.data)) {
         console.warn('API 응답이 올바르지 않습니다:', response.data);
         return { code: 200, message: 'success', data: [] };
       }

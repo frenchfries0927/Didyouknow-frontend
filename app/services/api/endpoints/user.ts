@@ -1,12 +1,14 @@
 import api from '../config/axios';
-import { FollowUser, UserPost, UserProfile } from '../types';
+import { ApiResponse, FollowUser, UserPost, UserProfile } from '../types';
 
 export const userApi = {
   // 내 프로필 조회
   getMyProfile: async (): Promise<UserProfile> => {
     try {
-      const response = await api.get('/api/users/me/profile');
-      return response.data as UserProfile;
+      console.log('API 호출: /api/users/me/profile');
+      const response = await api.get<ApiResponse<UserProfile>>('/api/users/me/profile');
+      console.log('프로필 조회 응답:', response.data);
+      return response.data.data;
     } catch (error) {
       console.error('프로필 조회 실패:', error);
       throw error;
@@ -16,8 +18,10 @@ export const userApi = {
   // 내 게시물 조회
   getMyPosts: async (): Promise<UserPost[]> => {
     try {
-      const response = await api.get('/api/users/me/posts');
-      return response.data as UserPost[];
+      console.log('API 호출: /api/users/me/posts');
+      const response = await api.get<ApiResponse<UserPost[]>>('/api/users/me/posts');
+      console.log('게시물 조회 응답:', response.data);
+      return response.data.data;
     } catch (error) {
       console.error('내 게시물 조회 실패:', error);
       throw error;
@@ -27,14 +31,10 @@ export const userApi = {
   // 사용자 검색
   searchUsers: async (keyword: string): Promise<FollowUser[]> => {
     try {
-      const response = await api.get(`/api/users/search?keyword=${encodeURIComponent(keyword)}`);
-      // 백엔드 응답을 프론트엔드 타입에 맞게 변환
-      return response.data.map((user: any) => ({
-        userId: user.id,
-        nickname: user.nickname,
-        profileImageUrl: user.profileImageUrl,
-        isFollowing: user.isFollowing
-      })) as FollowUser[];
+      console.log('API 호출: /api/users/search', { keyword });
+      const response = await api.get<ApiResponse<FollowUser[]>>(`/api/users/search?keyword=${encodeURIComponent(keyword)}`);
+      console.log('사용자 검색 응답:', response.data);
+      return response.data.data;
     } catch (error) {
       console.error('사용자 검색 실패:', error);
       throw error;
