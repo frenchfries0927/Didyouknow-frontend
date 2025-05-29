@@ -145,7 +145,7 @@ export default function CreateKnowledgeScreen() {
         }
       );
       
-      console.log('게시글 작성 성공:', response.data);
+      console.log('게시글 작성 성공');
       Alert.alert('성공', '게시글이 작성되었습니다.', [
         { text: 'OK', onPress: () => router.push('/(tabs)') }
       ]);

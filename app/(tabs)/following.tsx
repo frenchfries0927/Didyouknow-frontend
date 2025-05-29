@@ -2,7 +2,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { FlatList, Image, StyleSheet, Text, TouchableOpacity, View, ActivityIndicator, Alert } from 'react-native';
-import { followApi, FollowUser } from '../../services/api';
+import { followApi } from '../services/api/endpoints/follow';
+import { FollowUser } from '../services/api/types';
 
 export default function FollowingPage() {
   const router = useRouter();

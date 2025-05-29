@@ -164,7 +164,7 @@ export default function CreateQuizScreen() {
         }
       );
       
-      console.log('퀴즈 작성 성공:', response.data);
+      console.log('퀴즈 작성 성공');
       Alert.alert('성공', '퀴즈가 작성되었습니다.', [
         { text: 'OK', onPress: () => router.push('/(tabs)') }
       ]);
