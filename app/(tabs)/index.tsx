@@ -31,11 +31,11 @@ export default function FeedScreen() {
     
     try {
       // 실제 API 호출
-      const response = await feedApi.getFeeds();
-      console.log('API 응답 데이터:', JSON.stringify(response, null, 2));
+      const feedsData = await feedApi.getFeeds();
+      console.log('API 응답 데이터:', JSON.stringify(feedsData, null, 2));
       
       // 필드명 매핑 처리 - API 응답 구조에 따라 authorNickname 필드 설정
-      const mappedData = response.data.map((item: FeedItem) => {
+      const mappedData = feedsData.map((item: FeedItem) => {
         return {
           ...item,
           // id는 숫자 유지

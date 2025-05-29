@@ -3,7 +3,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { FlatList, Image, StyleSheet, Text, TouchableOpacity, View, ActivityIndicator, Alert } from 'react-native';
-import { userApi, UserProfile, UserPost } from '../../services/api';
+import { userApi } from '../services/api/endpoints/user';
+import { UserProfile, UserPost } from '../services/api/types';
 
 export default function ProfilePage() {
   const router = useRouter();

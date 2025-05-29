@@ -3,7 +3,7 @@ import { ApiResponse, Comment, FeedItem } from '../types';
 
 export const feedApi = {
   // 피드 목록 조회
-  getFeeds: async (): Promise<ApiResponse<FeedItem[]>> => {
+  getFeeds: async (): Promise<FeedItem[]> => {
     try {
       console.log('API 호출: /api/feed');
       const response = await api.get<ApiResponse<FeedItem[]>>('/api/feed');
@@ -12,10 +12,10 @@ export const feedApi = {
       // 응답 데이터가 없거나 잘못된 형식인 경우
       if (!response.data|| !Array.isArray(response.data.data)) {
         console.warn('API 응답이 올바르지 않습니다:', response.data);
-        return { code: 200, message: 'success', data: [] };
+        return [];
       }
       
-      return response.data;
+      return response.data.data;
     } catch (error: any) {
       console.error('피드 조회 실패:', error);
       if (error.response) {

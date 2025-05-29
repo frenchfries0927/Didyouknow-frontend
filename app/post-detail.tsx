@@ -16,7 +16,8 @@ import {
 } from 'react-native';
 
 const { width: screenWidth } = Dimensions.get('window');
-import { userApi, UserPost, Comment } from '../services/api';
+import { userApi } from './services/api/endpoints/user';
+import { UserPost, Comment } from './services/api/types';
 
 export default function PostDetailPage() {
   const router = useRouter();

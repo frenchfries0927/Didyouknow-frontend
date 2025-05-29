@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Google from 'expo-auth-session/providers/google';
 import * as WebBrowser from 'expo-web-browser';
+import api from '../services/api/config/axios';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -8,19 +9,15 @@ WebBrowser.maybeCompleteAuthSession();
 const webClientId = "917819112239-aq416kciqn8lvj0ct4jqvl4ov6h5gvcu.apps.googleusercontent.com";
 const androidClientId = "917819112239-jt7leg7kfjn28mo18p95padp61pelt62.apps.googleusercontent.com";
 
-// Backend API URL
-const API_URL = 'http://localhost:8080'; // 로컬 개발 서버
-
 // Verify JWT with backend
 const verifyToken = async (token: string) => {
   try {
-    const response = await fetch(`${API_URL}/auth/verify`, {
-      method: 'GET',
+    const response = await api.get('/auth/verify', {
       headers: {
         'Authorization': `Bearer ${token}`,
       },
     });
-    return response.ok;
+    return response.status === 200;
   } catch (error) {
     console.error('Error verifying token:', error);
     return false;
@@ -30,28 +27,22 @@ const verifyToken = async (token: string) => {
 // Get JWT token from backend
 const getJWTFromBackend = async (googleToken: string) => {
   try {
-    console.log('Attempting to connect to backend at:', API_URL);
+    console.log('Attempting to connect to backend');
     console.log('Sending token:', googleToken);
     
-    const response = await fetch(`${API_URL}/auth/google`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ token: googleToken }),
+    const response = await api.post('/auth/google', { 
+      token: googleToken 
     });
 
     console.log('Backend response status:', response.status);
-    const responseText = await response.text();
-    console.log('Backend raw response:', responseText);
+    console.log('Backend response data:', response.data);
 
-    if (!response.ok) {
-      throw new Error(`Failed to get JWT from backend: ${response.status} ${responseText}`);
+    if (response.status === 200 && response.data) {
+      console.log('Received valid response from backend');
+      return response.data;
+    } else {
+      throw new Error(`Failed to get JWT from backend: ${response.status}`);
     }
-
-    const data = JSON.parse(responseText);
-    console.log('Parsed backend response:', data);
-    return data;
   } catch (error) {
     console.error('Detailed error getting JWT from backend:', error);
     return null;
@@ -78,11 +69,11 @@ export const useGoogleAuth = () => {
         console.log('Google ID Token:', googleToken);
         
         if (googleToken) {
-          const response = await getJWTFromBackend(googleToken);
-          console.log('Backend response:', response);
+          const backendResponse = await getJWTFromBackend(googleToken);
+          console.log('Backend response:', backendResponse);
           
-          if (response?.code === 200 && response?.data) {
-            const { token, user, requiresProfile } = response.data;
+          if (backendResponse && (backendResponse as any).code === 200 && (backendResponse as any).data) {
+            const { token, user, requiresProfile } = (backendResponse as any).data;
             console.log('Token received:', token ? 'Yes' : 'No');
             console.log('User data received:', user ? 'Yes' : 'No');
             
@@ -119,7 +110,7 @@ export const useGoogleAuth = () => {
               return { success: false, requiresProfile: false };
             }
           }
-          console.log('Invalid response structure:', response);
+          console.log('Invalid response structure:', backendResponse);
         }
       }
       return { success: false, requiresProfile: false };

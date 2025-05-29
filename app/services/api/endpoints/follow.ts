@@ -26,6 +26,19 @@ export const followApi = {
     }
   },
 
+  // 팔로우 상태 확인
+  checkFollowStatus: async (targetUserId: number): Promise<boolean> => {
+    try {
+      console.log('API 호출: /api/follows/check', { targetUserId });
+      const response = await api.get<ApiResponse<boolean>>(`/api/follows/check/${targetUserId}`);
+      console.log('팔로우 상태 확인 응답:', response.data);
+      return response.data.data;
+    } catch (error) {
+      console.error('팔로우 상태 확인 실패:', error);
+      throw error;
+    }
+  },
+
   // 내 팔로워 목록 조회
   getMyFollowers: async (): Promise<FollowUser[]> => {
     try {

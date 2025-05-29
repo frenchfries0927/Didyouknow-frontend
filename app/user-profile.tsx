@@ -2,7 +2,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { FlatList, Image, StyleSheet, Text, TouchableOpacity, View, ActivityIndicator, Alert } from 'react-native';
-import { userApi, followApi, UserProfile, UserPost } from '../services/api';
+import { userApi } from './services/api/endpoints/user';
+import { followApi } from './services/api/endpoints/follow';
+import { UserProfile, UserPost } from './services/api/types';
 
 export default function UserProfilePage() {
   const router = useRouter();

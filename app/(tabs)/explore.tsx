@@ -2,7 +2,9 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import { Dimensions, FlatList, Image, StyleSheet, Text, TextInput, TouchableOpacity, View, ActivityIndicator, Alert } from 'react-native';
-import { userApi, followApi, FollowUser } from '../../services/api';
+import { userApi } from '../services/api/endpoints/user';
+import { followApi } from '../services/api/endpoints/follow';
+import { FollowUser } from '../services/api/types';
 
 export default function ExplorePage() {
   const [activeTab, setActiveTab] = useState<'posts' | 'users'>('posts');
