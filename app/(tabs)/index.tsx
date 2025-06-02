@@ -6,12 +6,15 @@ import FeedCard from '../components/FeedCard';
 import CommentModal from '../components/CommentModal';
 import { feedApi } from '../services/api/endpoints/feed';
 import { FeedItem } from '../services/api/types';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useGoogleAuth } from '../utils/auth';
 
 // 화면 너비 가져오기
 const { width } = Dimensions.get('window');
 
 export default function FeedScreen() {
   const router = useRouter();
+  const { signOut } = useGoogleAuth();
   const [feeds, setFeeds] = useState<FeedItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -21,15 +24,55 @@ export default function FeedScreen() {
   const [selectedOptions, setSelectedOptions] = useState<Record<number, number>>({});
   const [refreshing, setRefreshing] = useState(false);
   const [imageErrors, setImageErrors] = useState<{[key: number]: boolean}>({});
-  
-  // 임시 사용자 ID (실제 앱에서는 로그인된 사용자 ID 사용)
-  const currentUserId = 1;
+  const [currentUserId, setCurrentUserId] = useState<number | null>(null);
+  const [currentUser, setCurrentUser] = useState<{id: number, nickname: string} | null>(null);
 
+  // 앱 시작 시 사용자 ID 설정
   useEffect(() => {
-    fetchFeeds();
+    initializeUserId();
   }, []);
 
+  const initializeUserId = async () => {
+    try {
+      // 실제 로그인된 사용자 정보를 가져오기
+      const userStr = await AsyncStorage.getItem('@user');
+      console.log('AsyncStorage에서 가져온 @user:', userStr);
+      
+      if (userStr) {
+        try {
+          const user = JSON.parse(userStr);
+          console.log('파싱된 user 객체:', user);
+          
+          if (user && user.id) {
+            setCurrentUserId(user.id);
+            setCurrentUser({ id: user.id, nickname: user.nickname || 'User' });
+            console.log(`로그인된 사용자 ID 사용: ${user.id}, 닉네임: ${user.nickname}`);
+            return;
+          }
+        } catch (parseError) {
+          console.error('User 객체 파싱 실패:', parseError);
+        }
+      }
+      
+      // 로그인된 사용자가 없으면 로그인 화면으로 이동
+      console.log('로그인된 사용자가 없습니다. 로그인 화면으로 이동합니다.');
+      router.replace('/screens/LoginScreen');
+    } catch (error) {
+      console.error('사용자 ID 초기화 실패:', error);
+      // 실패 시 로그인 화면으로 이동
+      router.replace('/screens/LoginScreen');
+    }
+  };
+
+  useEffect(() => {
+    if (currentUserId !== null) {
+      fetchFeeds();
+    }
+  }, [currentUserId]);
+
   const fetchFeeds = async () => {
+    if (!currentUserId) return; // currentUserId가 null이면 early return
+    
     setLoading(true);
     setError(null);
     
@@ -93,7 +136,7 @@ export default function FeedScreen() {
       const feed = feeds.find(f => f.id === feedId);
       if (!feed) return;
 
-      console.log(`좋아요 토글 시작 - 피드 ID: ${feedId}, 현재 좋아요: ${feed.isLiked}, 현재 개수: ${feed.likes}`);
+      console.log(`좋아요 토글 시작 - 사용자 ID: ${currentUserId}, 피드 ID: ${feedId}, 현재 좋아요: ${feed.isLiked}, 현재 개수: ${feed.likes}`);
 
       // 낙관적 UI 업데이트 (즉시 반영)
       const optimisticLiked = !feed.isLiked;
@@ -178,8 +221,32 @@ export default function FeedScreen() {
     <SafeAreaView style={styles.container}>
       {/* 상단 네비게이션 바 */}
       <View style={styles.navbar}>
-        <Text style={styles.logoText}>logo</Text>
+        <View style={styles.leftNavSection}>
+          <Text style={styles.logoText}>logo</Text>
+          {currentUser && (
+            <Text style={styles.userIdText}>{currentUser.nickname} (ID: {currentUser.id})</Text>
+          )}
+        </View>
         <View style={styles.navbarRight}>
+          <TouchableOpacity 
+            style={styles.navButton}
+            onPress={async () => {
+              try {
+                const success = await signOut();
+                if (success) {
+                  console.log('로그아웃 성공');
+                  router.replace('/screens/LoginScreen');
+                } else {
+                  Alert.alert('오류', '로그아웃에 실패했습니다.');
+                }
+              } catch (error) {
+                console.error('로그아웃 오류:', error);
+                Alert.alert('오류', '로그아웃에 실패했습니다.');
+              }
+            }}
+          >
+            <Ionicons name="log-out-outline" size={24} color="#000" />
+          </TouchableOpacity>
           <TouchableOpacity style={styles.navButton}>
             <Ionicons name="notifications-outline" size={24} color="#000" />
           </TouchableOpacity>
@@ -293,10 +360,19 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 1,
   },
+  leftNavSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   logoText: {
     fontSize: 20,
     fontWeight: '700',
     color: '#FF6B6B',
+  },
+  userIdText: {
+    fontSize: 14,
+    color: '#7d7d7d',
+    marginLeft: 8,
   },
   navbarRight: {
     flexDirection: 'row',
