@@ -10,6 +10,7 @@ export type FeedItem = {
   title: string;
   content: string;
   imageUrl: string;
+  authorId: number;
   authorNickname: string;
   authorProfileImageUrl: string;
   createdAt: string;
@@ -21,6 +22,7 @@ export type FeedItem = {
 
 export type Comment = {
   id: number;
+  authorId?: number;
   author: string;
   content: string;
   createdAt: string;
@@ -48,7 +50,8 @@ export type UserPost = {
 };
 
 export type FollowUser = {
-  userId: number;
+  id?: number;
+  userId?: number;
   nickname: string;
   profileImageUrl: string;
   isFollowing?: boolean;

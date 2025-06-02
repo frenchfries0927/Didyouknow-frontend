@@ -10,11 +10,12 @@ type Props = {
   onLike: () => void;
   onSelectOption: (optionIndex: number) => void;
   onComment: () => void;
+  onProfilePress?: () => void;
 };
 
-export default function QuizCard({ feed, selectedOption, onSelectOption, ...props }: Props) {
+export default function QuizCard({ feed, selectedOption, onSelectOption, onProfilePress, ...props }: Props) {
   return (
-    <BaseCard feed={feed} {...props}>
+    <BaseCard feed={feed} onProfilePress={onProfilePress} {...props}>
       <View style={styles.quizContainer}>
         <Text style={styles.question}>{feed.content}</Text>
         <View style={styles.optionsContainer}>

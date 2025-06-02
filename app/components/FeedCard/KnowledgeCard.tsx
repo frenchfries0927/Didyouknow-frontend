@@ -8,11 +8,12 @@ type Props = {
   liked: boolean;
   onLike: () => void;
   onComment: () => void;
+  onProfilePress?: () => void;
 };
 
-export default function KnowledgeCard({ feed, ...props }: Props) {
+export default function KnowledgeCard({ feed, onProfilePress, ...props }: Props) {
   return (
-    <BaseCard feed={feed} {...props}>
+    <BaseCard feed={feed} onProfilePress={onProfilePress} {...props}>
       <View style={styles.contentContainer}>
         <Text style={styles.content}>{feed.content}</Text>
       </View>

@@ -8,15 +8,20 @@ type BaseCardProps = {
   liked: boolean;
   onLike: () => void;
   onComment: () => void;
+  onProfilePress?: () => void;
   children: React.ReactNode;
 };
 
-export default function BaseCard({ feed, liked, onLike, onComment, children }: BaseCardProps) {
+export default function BaseCard({ feed, liked, onLike, onComment, onProfilePress, children }: BaseCardProps) {
   return (
     <View style={styles.card}>
       {/* 게시물 헤더 */}
       <View style={styles.header}>
-        <View style={styles.headerLeft}>
+        <TouchableOpacity 
+          style={styles.headerLeft}
+          onPress={onProfilePress}
+          activeOpacity={0.7}
+        >
           <Image 
             source={{ 
               uri: feed.authorProfileImageUrl || 
@@ -41,7 +46,7 @@ export default function BaseCard({ feed, liked, onLike, onComment, children }: B
               })}
             </Text>
           </View>
-        </View>
+        </TouchableOpacity>
         <TouchableOpacity style={styles.moreButton}>
           <Ionicons name="ellipsis-vertical" size={20} color="#7d7d7d" />
         </TouchableOpacity>

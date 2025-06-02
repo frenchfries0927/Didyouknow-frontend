@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Dimensions, Modal, RefreshControl, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { useRouter } from 'expo-router';
 import FeedCard from '../components/FeedCard';
 import { feedApi } from '../services/api/endpoints/feed';
 import { Comment, FeedItem } from '../services/api/types';
@@ -9,6 +10,7 @@ import { Comment, FeedItem } from '../services/api/types';
 const { width } = Dimensions.get('window');
 
 export default function FeedScreen() {
+  const router = useRouter();
   const [feeds, setFeeds] = useState<FeedItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -40,6 +42,8 @@ export default function FeedScreen() {
           ...item,
           // id는 숫자 유지
           id: item.id,
+          // authorId 매핑 (백엔드에서 추가됨)
+          authorId: (item as any).authorId || item.authorId,
           // API 응답에서는 authorNickname이 아닌 author로 제공됨
           authorNickname: (item as any).author || item.authorNickname || "알 수 없음",
           // API 응답에서는 authorProfileImageUrl이 아닌 profileImageUrl로 제공됨
@@ -217,6 +221,12 @@ export default function FeedScreen() {
     fetchFeeds();
   };
 
+  // 프로필 클릭 핸들러 추가
+  const handleProfilePress = (authorId: number) => {
+    console.log('프로필 클릭:', authorId);
+    router.push(`/user-profile?userId=${authorId}`);
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       {/* 상단 네비게이션 바 */}
@@ -266,6 +276,7 @@ export default function FeedScreen() {
               onLike={() => toggleLike(feed.id)}
               onComment={() => openCommentModal(feed.id)}
               onSelectOption={(index: number) => selectOption(feed.id, index)}
+              onProfilePress={() => handleProfilePress(feed.authorId)}
             />
           ))
         )}
@@ -290,10 +301,19 @@ export default function FeedScreen() {
             <ScrollView style={styles.commentList}>
               {comments.map(comment => (
                 <View key={comment.id} style={styles.commentItem}>
-                  <View style={styles.commentAvatar} />
+                  <TouchableOpacity 
+                    style={styles.commentAvatar}
+                    onPress={() => comment.authorId && handleProfilePress(comment.authorId)}
+                    activeOpacity={comment.authorId ? 0.7 : 1}
+                  />
                   <View style={styles.commentContent}>
                     <View style={styles.commentMeta}>
-                      <Text style={styles.commentAuthor}>{comment.author}</Text>
+                      <TouchableOpacity 
+                        onPress={() => comment.authorId && handleProfilePress(comment.authorId)}
+                        activeOpacity={comment.authorId ? 0.7 : 1}
+                      >
+                        <Text style={styles.commentAuthor}>{comment.author}</Text>
+                      </TouchableOpacity>
                       <Text style={styles.commentTime}>{comment.createdAt}</Text>
                     </View>
                     <Text style={styles.commentText}>{comment.content}</Text>
