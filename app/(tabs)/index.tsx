@@ -3,8 +3,9 @@ import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Dimensions, Modal, RefreshControl, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import FeedCard from '../components/FeedCard';
+import CommentModal from '../components/CommentModal';
 import { feedApi } from '../services/api/endpoints/feed';
-import { Comment, FeedItem } from '../services/api/types';
+import { FeedItem } from '../services/api/types';
 
 // 화면 너비 가져오기
 const { width } = Dimensions.get('window');
@@ -16,8 +17,7 @@ export default function FeedScreen() {
   const [error, setError] = useState<string | null>(null);
   const [commentModalVisible, setCommentModalVisible] = useState(false);
   const [selectedFeedId, setSelectedFeedId] = useState<number | null>(null);
-  const [commentText, setCommentText] = useState('');
-  const [comments, setComments] = useState<Comment[]>([]);
+  const [selectedFeedType, setSelectedFeedType] = useState<'post' | 'quiz'>('post');
   const [selectedOptions, setSelectedOptions] = useState<Record<number, number>>({});
   const [likedFeeds, setLikedFeeds] = useState<Record<number, boolean>>({});
   const [refreshing, setRefreshing] = useState(false);
@@ -72,87 +72,15 @@ export default function FeedScreen() {
     }
   };
 
-  const openCommentModal = async (feedId: number) => {
+  const openCommentModal = (feedId: number, feedType: 'post' | 'quiz') => {
     setSelectedFeedId(feedId);
+    setSelectedFeedType(feedType);
     setCommentModalVisible(true);
-    
-    try {
-      // 실제 API 호출
-      const commentsData = await feedApi.getComments(feedId);
-      setComments(commentsData);
-    } catch (err) {
-      console.error('댓글 불러오기 실패:', err);
-      
-      // 임시 댓글 데이터
-      const mockComments: Comment[] = [
-        {
-          id: 1,
-          author: '김지현',
-          content: '정말 흥미로운 사실이네요! 커피에 대해 이렇게 많은 화학물질이 있다는 걸 처음 알았어요.',
-          createdAt: '3시간 전',
-          likes: 12
-        },
-        {
-          id: 2,
-          author: '이승준',
-          content: '매일 마시는 커피가 이렇게 복잡한 음료였다니 놀랍네요. 다음에 커피 마실 때는 더 음미하면서 마셔봐야겠어요!',
-          createdAt: '5시간 전',
-          likes: 8
-        }
-      ];
-      
-      setComments(mockComments);
-    }
   };
 
   const closeCommentModal = () => {
     setCommentModalVisible(false);
     setSelectedFeedId(null);
-    setCommentText('');
-  };
-
-  const submitComment = async () => {
-    if (commentText.trim() === '' || !selectedFeedId) return;
-    
-    try {
-      // 실제 API 호출
-      await feedApi.addComment(selectedFeedId, commentText);
-      
-      // 성공 시 새 댓글 추가
-      const newComment: Comment = {
-        id: Date.now(), // 임시 ID
-        author: '나',
-        content: commentText,
-        createdAt: '방금 전',
-        likes: 0
-      };
-      
-      setComments([newComment, ...comments]);
-      
-      // 댓글 수 업데이트
-      setFeeds(
-        feeds.map(feed => 
-          feed.id === selectedFeedId
-            ? { ...feed, comments: feed.comments + 1 }
-            : feed
-        )
-      );
-    } catch (err) {
-      console.error('댓글 작성 실패:', err);
-      
-      // 오류 발생해도 UI에 임시로 표시
-      const newComment: Comment = {
-        id: Date.now(),
-        author: '나',
-        content: commentText,
-        createdAt: '방금 전',
-        likes: 0
-      };
-      
-      setComments([newComment, ...comments]);
-    }
-    
-    setCommentText('');
   };
 
   const toggleLike = async (feedId: number) => {
@@ -274,7 +202,7 @@ export default function FeedScreen() {
               liked={likedFeeds[feed.id]}
               selectedOption={selectedOptions[feed.id]}
               onLike={() => toggleLike(feed.id)}
-              onComment={() => openCommentModal(feed.id)}
+              onComment={() => openCommentModal(feed.id, feed.type === 'knowledge' ? 'post' : 'quiz')}
               onSelectOption={(index: number) => selectOption(feed.id, index)}
               onProfilePress={() => handleProfilePress(feed.authorId)}
             />
@@ -283,73 +211,14 @@ export default function FeedScreen() {
       </ScrollView>
 
       {/* 댓글 모달 */}
-      <Modal
-        visible={commentModalVisible}
-        animationType="slide"
-        transparent={true}
-        onRequestClose={closeCommentModal}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContainer}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>댓글</Text>
-              <TouchableOpacity style={styles.closeButton} onPress={closeCommentModal}>
-                <Ionicons name="close" size={24} color="#000" />
-              </TouchableOpacity>
-            </View>
-            
-            <ScrollView style={styles.commentList}>
-              {comments.map(comment => (
-                <View key={comment.id} style={styles.commentItem}>
-                  <TouchableOpacity 
-                    style={styles.commentAvatar}
-                    onPress={() => comment.authorId && handleProfilePress(comment.authorId)}
-                    activeOpacity={comment.authorId ? 0.7 : 1}
-                  />
-                  <View style={styles.commentContent}>
-                    <View style={styles.commentMeta}>
-                      <TouchableOpacity 
-                        onPress={() => comment.authorId && handleProfilePress(comment.authorId)}
-                        activeOpacity={comment.authorId ? 0.7 : 1}
-                      >
-                        <Text style={styles.commentAuthor}>{comment.author}</Text>
-                      </TouchableOpacity>
-                      <Text style={styles.commentTime}>{comment.createdAt}</Text>
-                    </View>
-                    <Text style={styles.commentText}>{comment.content}</Text>
-                    <View style={styles.commentActions}>
-                      <TouchableOpacity style={styles.commentLike}>
-                        <Ionicons name="heart-outline" size={16} color="#7d7d7d" />
-                        <Text style={styles.commentLikeCount}>{comment.likes}</Text>
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-                </View>
-              ))}
-            </ScrollView>
-            
-            <View style={styles.commentInput}>
-              <TextInput
-                style={styles.textInput}
-                placeholder="댓글을 입력하세요..."
-                value={commentText}
-                onChangeText={setCommentText}
-                multiline={false}
-              />
-              <TouchableOpacity 
-                style={[
-                  styles.sendButton,
-                  commentText.trim() === '' && styles.disabledSendButton
-                ]}
-                onPress={submitComment}
-                disabled={commentText.trim() === ''}
-              >
-                <Ionicons name="send" size={18} color="#fff" />
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
+      {selectedFeedId && (
+        <CommentModal
+          visible={commentModalVisible}
+          onClose={closeCommentModal}
+          targetType={selectedFeedType}
+          targetId={selectedFeedId}
+        />
+      )}
     </SafeAreaView>
   );
 }
