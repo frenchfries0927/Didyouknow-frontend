@@ -15,10 +15,10 @@ export default function ExplorePage() {
   const [loading, setLoading] = useState(false);
 
   // 모의 게시물 데이터
-  const exploreMockData = Array.from({ length: 20 }, (_, i) => ({
-    id: i,
-    imageUrl: `https://picsum.photos/id/${i + 100}/300/300`
-  }));
+const exploreMockData = Array.from({ length: 20 }, (_, i) => ({
+  id: i,
+  imageUrl: `https://picsum.photos/id/${i + 100}/300/300`
+}));
 
   const searchUsers = async () => {
     if (!searchKeyword.trim()) {
@@ -125,7 +125,7 @@ export default function ExplorePage() {
       <View style={styles.header}>
         <Text style={styles.headerTitle}>탐색</Text>
       </View>
-
+      
       {/* 검색 입력 */}
       <View style={styles.searchContainer}>
         <View style={styles.searchInputContainer}>
@@ -180,9 +180,9 @@ export default function ExplorePage() {
 
       {/* 컨텐츠 */}
       {activeTab === 'posts' ? (
-        <FlatList
-          data={exploreMockData}
-          numColumns={3}
+      <FlatList
+        data={exploreMockData}
+        numColumns={3}
           renderItem={renderPostItem}
           keyExtractor={item => item.id.toString()}
           contentContainerStyle={{ paddingBottom: 20 }}
@@ -217,13 +217,13 @@ export default function ExplorePage() {
                     <Ionicons name="people-outline" size={48} color="#ccc" />
                     <Text style={styles.emptyText}>사용자를 검색해보세요</Text>
                     <Text style={styles.emptySubText}>닉네임으로 다른 사용자를 찾을 수 있습니다</Text>
-                  </View>
+          </View>
                 )
               }
             />
           )}
         </>
-      )}
+        )}
     </View>
   );
 }

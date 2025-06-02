@@ -14,6 +14,7 @@ export default function UserProfilePage() {
   const [loading, setLoading] = useState(true);
   const [isFollowing, setIsFollowing] = useState(false);
   const [followLoading, setFollowLoading] = useState(false);
+  const [imageErrors, setImageErrors] = useState<{[key: string]: boolean}>({});
 
   useEffect(() => {
     if (userId) {
@@ -25,8 +26,15 @@ export default function UserProfilePage() {
   const loadUserProfile = async () => {
     try {
       setLoading(true);
+      console.log('사용자 프로필 로딩 시작, userId:', userId);
+      
       const profileData = await userApi.getUserProfile(Number(userId));
+      console.log('프로필 데이터:', profileData);
+      
       const postsData = await userApi.getUserPosts(Number(userId));
+      console.log('게시물 데이터:', postsData);
+      console.log('게시물 개수:', postsData.length);
+      
       setProfile(profileData);
       setPosts(postsData);
     } catch (error) {
@@ -66,27 +74,35 @@ export default function UserProfilePage() {
     }
   };
 
-  const renderPostItem = ({ item }: { item: UserPost }) => (
-    <TouchableOpacity 
-      style={styles.postImageContainer}
-      onPress={() => router.push(`/post-detail?postId=${item.id}`)}
-    >
-      {item.imageUrls && item.imageUrls.length > 0 ? (
-        <Image 
-          source={{ uri: item.imageUrls[0] }} 
-          style={styles.postImage}
-          onError={() => {
-            // 이미지 로딩 실패 시 아무것도 하지 않음 (fallback은 아래에서 처리)
-          }}
-          defaultSource={{ uri: 'https://via.placeholder.com/150x150/f0f0f0/999999?text=No+Image' }}
-        />
-      ) : (
-        <View style={[styles.postImage, styles.noImagePost]}>
-          <Text style={styles.postTitle} numberOfLines={2}>{item.title}</Text>
-        </View>
-      )}
-    </TouchableOpacity>
-  );
+  const renderPostItem = ({ item }: { item: UserPost }) => {
+    console.log('렌더링할 게시물 아이템:', item);
+    console.log('이미지 URLs:', item.imageUrls);
+    
+    const hasImageError = imageErrors[item.id.toString()];
+    const hasValidImage = item.imageUrls && item.imageUrls.length > 0 && !hasImageError;
+    
+    return (
+      <TouchableOpacity 
+        style={styles.postImageContainer}
+        onPress={() => router.push(`/post-detail?postId=${item.id}`)}
+      >
+        {hasValidImage ? (
+          <Image 
+            source={{ uri: item.imageUrls[0] }} 
+            style={styles.postImage}
+            onError={() => {
+              console.log('이미지 로딩 실패:', item.imageUrls[0]);
+              setImageErrors(prev => ({ ...prev, [item.id.toString()]: true }));
+            }}
+          />
+        ) : (
+          <View style={[styles.postImage, styles.noImagePost]}>
+            <Text style={styles.postTitle} numberOfLines={2}>{item.title}</Text>
+          </View>
+        )}
+      </TouchableOpacity>
+    );
+  };
 
   if (loading) {
     return (
@@ -188,6 +204,7 @@ export default function UserProfilePage() {
         keyExtractor={item => item.id.toString()}
         contentContainerStyle={{ paddingBottom: 20 }}
         showsVerticalScrollIndicator={false}
+        onLayout={() => console.log('FlatList 레이아웃 완료, posts 길이:', posts.length)}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
             <Ionicons name="camera-outline" size={48} color="#ccc" />
