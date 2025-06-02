@@ -3,10 +3,11 @@ import { ApiResponse, Comment, FeedItem } from '../types';
 
 export const feedApi = {
   // 피드 목록 조회
-  getFeeds: async (): Promise<FeedItem[]> => {
+  getFeeds: async (userId?: number): Promise<FeedItem[]> => {
     try {
       console.log('API 호출: /api/feed');
-      const response = await api.get<ApiResponse<FeedItem[]>>('/api/feed');
+      const params = userId ? { userId } : {};
+      const response = await api.get<ApiResponse<FeedItem[]>>('/api/feed', { params });
       console.log('API 응답:', response);
       
       // 응답 데이터가 없거나 잘못된 형식인 경우
@@ -64,10 +65,16 @@ export const feedApi = {
   },
   
   // 좋아요 토글
-  toggleLike: async (feedId: number): Promise<{ success: boolean, likes: number }> => {
+  toggleLike: async (feedId: number, targetType: 'knowledge' | 'quiz', userId: number): Promise<{ isLiked: boolean, likeCount: number }> => {
     try {
-      const response = await api.post<ApiResponse<{ success: boolean, likes: number }>>(`/api/feed/${feedId}/like`);
-      return response.data.data;
+      const response = await api.post<{ isLiked: boolean, likeCount: number }>('/api/likes/toggle', null, {
+        params: {
+          userId,
+          targetType,
+          targetId: feedId
+        }
+      });
+      return response.data;
     } catch (error) {
       console.error(`좋아요 토글 실패:`, error);
       throw error;

@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Dimensions, Modal, RefreshControl, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Dimensions, Modal, RefreshControl, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import FeedCard from '../components/FeedCard';
 import CommentModal from '../components/CommentModal';
@@ -19,9 +19,11 @@ export default function FeedScreen() {
   const [selectedFeedId, setSelectedFeedId] = useState<number | null>(null);
   const [selectedFeedType, setSelectedFeedType] = useState<'post' | 'quiz'>('post');
   const [selectedOptions, setSelectedOptions] = useState<Record<number, number>>({});
-  const [likedFeeds, setLikedFeeds] = useState<Record<number, boolean>>({});
   const [refreshing, setRefreshing] = useState(false);
   const [imageErrors, setImageErrors] = useState<{[key: number]: boolean}>({});
+  
+  // 임시 사용자 ID (실제 앱에서는 로그인된 사용자 ID 사용)
+  const currentUserId = 1;
 
   useEffect(() => {
     fetchFeeds();
@@ -32,8 +34,8 @@ export default function FeedScreen() {
     setError(null);
     
     try {
-      // 실제 API 호출
-      const feedsData = await feedApi.getFeeds();
+      // 사용자 ID 없이 API 호출 (테스트용)
+      const feedsData = await feedApi.getFeeds(); // currentUserId 제거
       console.log('API 응답 데이터:', JSON.stringify(feedsData, null, 2));
       
       // 필드명 매핑 처리 - API 응답 구조에 따라 authorNickname 필드 설정
@@ -54,14 +56,6 @@ export default function FeedScreen() {
       });
       
       setFeeds(mappedData);
-      
-      // 좋아요 상태 초기화
-      const initialLikedState: Record<number, boolean> = {};
-      mappedData.forEach((feed: FeedItem) => {
-        initialLikedState[feed.id] = false;
-      });
-      
-      setLikedFeeds(initialLikedState);
     } catch (err) {
       console.error('피드 불러오기 실패:', err);
       setError('피드를 불러오는 중 오류가 발생했습니다.');
@@ -85,40 +79,30 @@ export default function FeedScreen() {
 
   const toggleLike = async (feedId: number) => {
     try {
-      // UI 먼저 업데이트
-      setLikedFeeds(prev => {
-        const isLiked = prev[feedId];
-        return {...prev, [feedId]: !isLiked};
-      });
+      // 로그인 체크 (실제 앱에서는 AsyncStorage에서 사용자 정보 확인)
+      if (!currentUserId) {
+        Alert.alert('알림', '좋아요 기능을 사용하려면 로그인이 필요합니다.');
+        return;
+      }
+
+      // 해당 피드 찾기
+      const feed = feeds.find(f => f.id === feedId);
+      if (!feed) return;
+
+      // API 호출
+      const result = await feedApi.toggleLike(feedId, feed.type, currentUserId);
       
-      // 좋아요 수 업데이트
-      setFeeds(feeds.map(feed => {
-        if (feed.id === feedId) {
-          return {
-            ...feed,
-            likes: feed.likes + (likedFeeds[feedId] ? -1 : 1)
-          };
-        }
-        return feed;
-      }));
-      
-      // 실제 API 호출
-      await feedApi.toggleLike(feedId);
+      // 피드 상태 업데이트
+      setFeeds(prevFeeds => 
+        prevFeeds.map(feed => 
+          feed.id === feedId 
+            ? { ...feed, likes: result.likeCount, isLiked: result.isLiked }
+            : feed
+        )
+      );
     } catch (err) {
       console.error('좋아요 토글 실패:', err);
-      
-      // 오류 발생 시 원래 상태로 되돌림
-      setLikedFeeds(prev => ({...prev, [feedId]: !prev[feedId]}));
-      
-      setFeeds(feeds.map(feed => {
-        if (feed.id === feedId) {
-          return {
-            ...feed,
-            likes: feed.likes + (likedFeeds[feedId] ? 1 : -1)
-          };
-        }
-        return feed;
-      }));
+      Alert.alert('오류', '좋아요 처리에 실패했습니다.');
     }
   };
 
@@ -199,11 +183,11 @@ export default function FeedScreen() {
             <FeedCard
               key={feed.id}
               feed={feed}
-              liked={likedFeeds[feed.id]}
+              liked={feed.isLiked}
               selectedOption={selectedOptions[feed.id]}
               onLike={() => toggleLike(feed.id)}
+              onSelectOption={(optionIndex) => selectOption(feed.id, optionIndex)}
               onComment={() => openCommentModal(feed.id, feed.type === 'knowledge' ? 'post' : 'quiz')}
-              onSelectOption={(index: number) => selectOption(feed.id, index)}
               onProfilePress={() => handleProfilePress(feed.authorId)}
             />
           ))

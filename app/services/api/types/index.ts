@@ -18,6 +18,7 @@ export type FeedItem = {
   hint?: string;
   likes: number;
   comments: number;
+  isLiked: boolean;
 };
 
 export type Comment = {
