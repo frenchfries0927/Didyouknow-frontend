@@ -34,8 +34,8 @@ export default function FeedScreen() {
     setError(null);
     
     try {
-      // 사용자 ID 없이 API 호출 (테스트용)
-      const feedsData = await feedApi.getFeeds(); // currentUserId 제거
+      // 사용자 ID와 함께 API 호출하여 정확한 좋아요 상태 가져오기
+      const feedsData = await feedApi.getFeeds(currentUserId);
       console.log('API 응답 데이터:', JSON.stringify(feedsData, null, 2));
       
       // 필드명 매핑 처리 - API 응답 구조에 따라 authorNickname 필드 설정
@@ -51,7 +51,11 @@ export default function FeedScreen() {
           // API 응답에서는 authorProfileImageUrl이 아닌 profileImageUrl로 제공됨
           authorProfileImageUrl: (item as any).profileImageUrl || item.authorProfileImageUrl,
           // imageUrl이 null일 경우 빈 문자열로 처리
-          imageUrl: item.imageUrl || ''
+          imageUrl: item.imageUrl || '',
+          // 좋아요/댓글 관련 필드 확실하게 매핑
+          likes: item.likes || 0,
+          comments: item.comments || 0,
+          isLiked: item.isLiked || false
         };
       });
       
@@ -89,17 +93,48 @@ export default function FeedScreen() {
       const feed = feeds.find(f => f.id === feedId);
       if (!feed) return;
 
-      // API 호출
-      const result = await feedApi.toggleLike(feedId, feed.type, currentUserId);
+      console.log(`좋아요 토글 시작 - 피드 ID: ${feedId}, 현재 좋아요: ${feed.isLiked}, 현재 개수: ${feed.likes}`);
+
+      // 낙관적 UI 업데이트 (즉시 반영)
+      const optimisticLiked = !feed.isLiked;
+      const optimisticCount = feed.isLiked ? feed.likes - 1 : feed.likes + 1;
       
-      // 피드 상태 업데이트
+      console.log(`낙관적 업데이트 - 새 좋아요: ${optimisticLiked}, 새 개수: ${optimisticCount}`);
+      
       setFeeds(prevFeeds => 
-        prevFeeds.map(feed => 
-          feed.id === feedId 
-            ? { ...feed, likes: result.likeCount, isLiked: result.isLiked }
-            : feed
+        prevFeeds.map(f => 
+          f.id === feedId 
+            ? { ...f, likes: optimisticCount, isLiked: optimisticLiked }
+            : f
         )
       );
+
+      try {
+        // API 호출
+        const result = await feedApi.toggleLike(feedId, feed.type, currentUserId);
+        
+        console.log(`서버 응답 - 좋아요: ${result.isLiked}, 개수: ${result.likeCount}`);
+        
+        // 서버 응답으로 최종 상태 업데이트
+        setFeeds(prevFeeds => 
+          prevFeeds.map(f => 
+            f.id === feedId 
+              ? { ...f, likes: result.likeCount, isLiked: result.isLiked }
+              : f
+          )
+        );
+      } catch (apiError) {
+        console.log('API 호출 실패, 원래 상태로 되돌림');
+        // API 실패 시 원래 상태로 되돌림
+        setFeeds(prevFeeds => 
+          prevFeeds.map(f => 
+            f.id === feedId 
+              ? { ...f, likes: feed.likes, isLiked: feed.isLiked }
+              : f
+          )
+        );
+        throw apiError;
+      }
     } catch (err) {
       console.error('좋아요 토글 실패:', err);
       Alert.alert('오류', '좋아요 처리에 실패했습니다.');
