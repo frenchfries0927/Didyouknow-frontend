@@ -2,7 +2,7 @@ import api from '../config/axios';
 import { ApiResponse } from '../types';
 
 export type CommentRequest = {
-  targetType: 'post' | 'quiz';
+  targetType: 'knowledge' | 'quiz';
   targetId: number;
   parentCommentId?: number;
   content: string;

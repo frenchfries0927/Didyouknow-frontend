@@ -20,11 +20,12 @@ import { useRouter } from 'expo-router';
 interface CommentModalProps {
   visible: boolean;
   onClose: () => void;
-  targetType: 'post' | 'quiz';
+  targetType: 'knowledge' | 'quiz';
   targetId: number;
+  onCommentAdded?: () => void;
 }
 
-export default function CommentModal({ visible, onClose, targetType, targetId }: CommentModalProps) {
+export default function CommentModal({ visible, onClose, targetType, targetId, onCommentAdded }: CommentModalProps) {
   const router = useRouter();
   const [comments, setComments] = useState<CommentResponse[]>([]);
   const [newComment, setNewComment] = useState('');
@@ -119,6 +120,9 @@ export default function CommentModal({ visible, onClose, targetType, targetId }:
       
       setNewComment('');
       await loadComments();
+      if (onCommentAdded) {
+        onCommentAdded();
+      }
     } catch (error) {
       console.error('댓글 작성 실패:', error);
       Alert.alert('오류', '댓글 작성에 실패했습니다.');
@@ -140,6 +144,9 @@ export default function CommentModal({ visible, onClose, targetType, targetId }:
       setReplyText('');
       setReplyingTo(null);
       await loadComments();
+      if (onCommentAdded) {
+        onCommentAdded();
+      }
     } catch (error) {
       console.error('대댓글 작성 실패:', error);
       Alert.alert('오류', '대댓글 작성에 실패했습니다.');
@@ -159,6 +166,9 @@ export default function CommentModal({ visible, onClose, targetType, targetId }:
             try {
               await commentApi.delete(commentId);
               await loadComments();
+              if (onCommentAdded) {
+                onCommentAdded();
+              }
             } catch (error) {
               console.error('댓글 삭제 실패:', error);
               Alert.alert('오류', '댓글 삭제에 실패했습니다.');

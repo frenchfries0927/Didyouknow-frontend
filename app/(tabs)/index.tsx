@@ -20,7 +20,7 @@ export default function FeedScreen() {
   const [error, setError] = useState<string | null>(null);
   const [commentModalVisible, setCommentModalVisible] = useState(false);
   const [selectedFeedId, setSelectedFeedId] = useState<number | null>(null);
-  const [selectedFeedType, setSelectedFeedType] = useState<'post' | 'quiz'>('post');
+  const [selectedFeedType, setSelectedFeedType] = useState<'knowledge' | 'quiz'>('knowledge');
   const [selectedOptions, setSelectedOptions] = useState<Record<number, number>>({});
   const [refreshing, setRefreshing] = useState(false);
   const [imageErrors, setImageErrors] = useState<{[key: number]: boolean}>({});
@@ -81,6 +81,19 @@ export default function FeedScreen() {
       const feedsData = await feedApi.getFeeds(currentUserId);
       console.log('API 응답 데이터:', JSON.stringify(feedsData, null, 2));
       
+      // 각 피드 아이템의 comments 필드 확인
+      feedsData.forEach((item, index) => {
+        console.log(`피드 ${index + 1} (ID: ${item.id}):`, {
+          type: item.type,
+          title: item.title,
+          likes: item.likes,
+          comments: item.comments,
+          isLiked: item.isLiked,
+          rawComments: (item as any).comments,
+          allFields: Object.keys(item)
+        });
+      });
+      
       // 필드명 매핑 처리 - API 응답 구조에 따라 authorNickname 필드 설정
       const mappedData = feedsData.map((item: FeedItem) => {
         return {
@@ -102,6 +115,11 @@ export default function FeedScreen() {
         };
       });
       
+      console.log('매핑된 데이터 댓글 개수 확인:');
+      mappedData.forEach((item, index) => {
+        console.log(`매핑된 피드 ${index + 1} (ID: ${item.id}): comments = ${item.comments}`);
+      });
+      
       setFeeds(mappedData);
     } catch (err) {
       console.error('피드 불러오기 실패:', err);
@@ -113,7 +131,7 @@ export default function FeedScreen() {
     }
   };
 
-  const openCommentModal = (feedId: number, feedType: 'post' | 'quiz') => {
+  const openCommentModal = (feedId: number, feedType: 'knowledge' | 'quiz') => {
     setSelectedFeedId(feedId);
     setSelectedFeedType(feedType);
     setCommentModalVisible(true);
@@ -122,6 +140,7 @@ export default function FeedScreen() {
   const closeCommentModal = () => {
     setCommentModalVisible(false);
     setSelectedFeedId(null);
+    // 댓글 작성/삭제는 onCommentAdded 콜백에서 처리하므로 여기서는 새로고침하지 않음
   };
 
   const toggleLike = async (feedId: number) => {
@@ -217,6 +236,30 @@ export default function FeedScreen() {
     router.push(`/user-profile?userId=${authorId}`);
   };
 
+  // 특정 게시글의 댓글 개수만 업데이트하는 함수
+  const updateCommentCount = async (feedId: number, feedType: 'knowledge' | 'quiz') => {
+    try {
+      // 백엔드에서 댓글 개수 조회
+      const targetType = feedType; // knowledge는 knowledge, quiz는 quiz 그대로 사용
+      const newCommentCount = await feedApi.getCommentCount(targetType, feedId);
+      
+      // 해당 피드의 댓글 개수만 업데이트
+      setFeeds(prevFeeds => 
+        prevFeeds.map(feed => 
+          feed.id === feedId 
+            ? { ...feed, comments: newCommentCount }
+            : feed
+        )
+      );
+      
+      console.log(`피드 ID ${feedId}의 댓글 개수 업데이트: ${newCommentCount}`);
+    } catch (error) {
+      console.error('댓글 개수 업데이트 실패:', error);
+      // 실패 시 전체 피드 새로고침으로 폴백
+      fetchFeeds();
+    }
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       {/* 상단 네비게이션 바 */}
@@ -289,7 +332,7 @@ export default function FeedScreen() {
               selectedOption={selectedOptions[feed.id]}
               onLike={() => toggleLike(feed.id)}
               onSelectOption={(optionIndex) => selectOption(feed.id, optionIndex)}
-              onComment={() => openCommentModal(feed.id, feed.type === 'knowledge' ? 'post' : 'quiz')}
+              onComment={() => openCommentModal(feed.id, feed.type)}
               onProfilePress={() => handleProfilePress(feed.authorId)}
             />
           ))
@@ -303,6 +346,10 @@ export default function FeedScreen() {
           onClose={closeCommentModal}
           targetType={selectedFeedType}
           targetId={selectedFeedId}
+          onCommentAdded={() => {
+            // 댓글 추가 시 해당 게시글의 댓글 개수만 업데이트
+            updateCommentCount(selectedFeedId, selectedFeedType);
+          }}
         />
       )}
     </SafeAreaView>

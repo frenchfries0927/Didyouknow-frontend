@@ -90,5 +90,21 @@ export const feedApi = {
       console.error(`답변 제출 실패:`, error);
       throw error;
     }
+  },
+
+  // 댓글 개수 조회
+  getCommentCount: async (targetType: 'knowledge' | 'quiz', targetId: number): Promise<number> => {
+    try {
+      const response = await api.get<ApiResponse<number>>('/api/comments/count', {
+        params: {
+          targetType,
+          targetId
+        }
+      });
+      return response.data.data;
+    } catch (error) {
+      console.error(`댓글 개수 조회 실패:`, error);
+      throw error;
+    }
   }
 }; 
