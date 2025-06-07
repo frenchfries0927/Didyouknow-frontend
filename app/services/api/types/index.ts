@@ -10,18 +10,22 @@ export type FeedItem = {
   title: string;
   content: string;
   imageUrl: string;
-  authorNickname: string;
-  authorProfileImageUrl: string;
+  authorId: number;
+  author: string;
+  profileImageUrl: string;
   createdAt: string;
   options?: string[];
   hint?: string;
   likes: number;
   comments: number;
+  isLiked?: boolean;
 };
 
 export type Comment = {
   id: number;
   author: string;
+  authorId: number;
+  profileImageUrl: string;
   content: string;
   createdAt: string;
   likes: number;
@@ -40,11 +44,15 @@ export type UserProfile = {
 
 export type UserPost = {
   id: number;
+  type?: 'knowledge' | 'quiz';
   title: string;
   content: string;
   authorNickname: string;
   publishDate: string;
   imageUrls: string[];
+  likes?: number;
+  comments?: number;
+  isLiked?: boolean;
 };
 
 export type FollowUser = {

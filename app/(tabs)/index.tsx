@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { ActivityIndicator, Dimensions, Modal, RefreshControl, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { useRouter } from 'expo-router';
 import FeedCard from '../components/FeedCard';
 import { feedApi } from '../services/api/endpoints/feed';
 import { Comment, FeedItem } from '../services/api/types';
@@ -9,6 +10,7 @@ import { Comment, FeedItem } from '../services/api/types';
 const { width } = Dimensions.get('window');
 
 export default function FeedScreen() {
+  const router = useRouter();
   const [feeds, setFeeds] = useState<FeedItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -28,40 +30,21 @@ export default function FeedScreen() {
   const fetchFeeds = async () => {
     setLoading(true);
     setError(null);
-    
     try {
-      // 실제 API 호출
       const feedsData = await feedApi.getFeeds();
-      console.log('API 응답 데이터:', JSON.stringify(feedsData, null, 2));
+      console.log('피드 데이터:', feedsData);
+      setFeeds(feedsData);
       
-      // 필드명 매핑 처리 - API 응답 구조에 따라 authorNickname 필드 설정
-      const mappedData = feedsData.map((item: FeedItem) => {
-        return {
-          ...item,
-          // id는 숫자 유지
-          id: item.id,
-          // API 응답에서는 authorNickname이 아닌 author로 제공됨
-          authorNickname: (item as any).author || item.authorNickname || "알 수 없음",
-          // API 응답에서는 authorProfileImageUrl이 아닌 profileImageUrl로 제공됨
-          authorProfileImageUrl: (item as any).profileImageUrl || item.authorProfileImageUrl,
-          // imageUrl이 null일 경우 빈 문자열로 처리
-          imageUrl: item.imageUrl || ''
-        };
-      });
+      // 서버에서 받은 좋아요 상태 설정
+      const likedState = feedsData.reduce((acc, feed) => {
+        acc[feed.id] = feed.isLiked || false;
+        return acc;
+      }, {} as {[key: number]: boolean});
       
-      setFeeds(mappedData);
-      
-      // 좋아요 상태 초기화
-      const initialLikedState: Record<number, boolean> = {};
-      mappedData.forEach((feed: FeedItem) => {
-        initialLikedState[feed.id] = false;
-      });
-      
-      setLikedFeeds(initialLikedState);
+      setLikedFeeds(likedState);
     } catch (err) {
-      console.error('피드 불러오기 실패:', err);
-      setError('피드를 불러오는 중 오류가 발생했습니다.');
-      setFeeds([]);
+      console.error('피드 로딩 실패:', err);
+      setError('피드를 불러오는데 실패했습니다.');
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -73,9 +56,24 @@ export default function FeedScreen() {
     setCommentModalVisible(true);
     
     try {
+      // 피드에서 타입 찾기
+      const feed = feeds.find(f => f.id === feedId);
+      const targetType = feed?.type || 'knowledge';
+      
       // 실제 API 호출
-      const commentsData = await feedApi.getComments(feedId);
-      setComments(commentsData);
+      const commentsData = await feedApi.getComments(feedId, targetType);
+      
+      // 댓글 데이터 안전하게 처리
+      const safeComments = (commentsData || []).map(comment => ({
+        ...comment,
+        author: comment.author || '익명',
+        authorId: comment.authorId || 0,
+        profileImageUrl: comment.profileImageUrl || '',
+        content: comment.content || '',
+        likes: comment.likes || 0
+      }));
+      
+      setComments(safeComments);
     } catch (err) {
       console.error('댓글 불러오기 실패:', err);
       
@@ -84,6 +82,8 @@ export default function FeedScreen() {
         {
           id: 1,
           author: '김지현',
+          authorId: 1,
+          profileImageUrl: '',
           content: '정말 흥미로운 사실이네요! 커피에 대해 이렇게 많은 화학물질이 있다는 걸 처음 알았어요.',
           createdAt: '3시간 전',
           likes: 12
@@ -91,6 +91,8 @@ export default function FeedScreen() {
         {
           id: 2,
           author: '이승준',
+          authorId: 2,
+          profileImageUrl: '',
           content: '매일 마시는 커피가 이렇게 복잡한 음료였다니 놀랍네요. 다음에 커피 마실 때는 더 음미하면서 마셔봐야겠어요!',
           createdAt: '5시간 전',
           likes: 8
@@ -108,51 +110,45 @@ export default function FeedScreen() {
   };
 
   const submitComment = async () => {
-    if (commentText.trim() === '' || !selectedFeedId) return;
-    
+    if (!commentText.trim() || !selectedFeedId) return;
+
     try {
-      // 실제 API 호출
-      await feedApi.addComment(selectedFeedId, commentText);
+      // 피드에서 타입 찾기
+      const feed = feeds.find(f => f.id === selectedFeedId);
+      const targetType = feed?.type || 'knowledge';
       
-      // 성공 시 새 댓글 추가
-      const newComment: Comment = {
-        id: Date.now(), // 임시 ID
-        author: '나',
-        content: commentText,
-        createdAt: '방금 전',
-        likes: 0
+      const newComment = await feedApi.addComment(selectedFeedId, commentText.trim(), targetType);
+      
+      // 새 댓글을 안전하게 처리
+      const safeComment = {
+        ...newComment,
+        author: newComment.author || '익명',
+        authorId: newComment.authorId || 0,
+        profileImageUrl: newComment.profileImageUrl || '',
+        content: newComment.content || '',
+        likes: newComment.likes || 0
       };
       
-      setComments([newComment, ...comments]);
+      setComments(prev => [safeComment, ...prev]);
+      setCommentText('');
       
-      // 댓글 수 업데이트
-      setFeeds(
-        feeds.map(feed => 
-          feed.id === selectedFeedId
-            ? { ...feed, comments: feed.comments + 1 }
-            : feed
-        )
-      );
-    } catch (err) {
-      console.error('댓글 작성 실패:', err);
+      // 피드의 댓글 수 업데이트
+      setFeeds(prev => prev.map(feedItem => 
+        feedItem.id === selectedFeedId 
+          ? { ...feedItem, comments: feedItem.comments + 1 }
+          : feedItem
+      ));
       
-      // 오류 발생해도 UI에 임시로 표시
-      const newComment: Comment = {
-        id: Date.now(),
-        author: '나',
-        content: commentText,
-        createdAt: '방금 전',
-        likes: 0
-      };
-      
-      setComments([newComment, ...comments]);
+    } catch (error) {
+      console.error('댓글 작성 실패:', error);
     }
-    
-    setCommentText('');
   };
 
   const toggleLike = async (feedId: number) => {
     try {
+      const feed = feeds.find(f => f.id === feedId);
+      if (!feed) return;
+
       // UI 먼저 업데이트
       setLikedFeeds(prev => {
         const isLiked = prev[feedId];
@@ -160,32 +156,45 @@ export default function FeedScreen() {
       });
       
       // 좋아요 수 업데이트
-      setFeeds(feeds.map(feed => {
-        if (feed.id === feedId) {
+      setFeeds(feeds.map(feedItem => {
+        if (feedItem.id === feedId) {
           return {
-            ...feed,
-            likes: feed.likes + (likedFeeds[feedId] ? -1 : 1)
+            ...feedItem,
+            likes: feedItem.likes + (likedFeeds[feedId] ? -1 : 1)
           };
         }
-        return feed;
+        return feedItem;
       }));
       
       // 실제 API 호출
-      await feedApi.toggleLike(feedId);
+      const result = await feedApi.toggleLike(feedId, feed.type);
+      
+      // 서버 응답으로 최종 업데이트
+      setLikedFeeds(prev => ({...prev, [feedId]: result.isLiked}));
+      setFeeds(feeds.map(feedItem => {
+        if (feedItem.id === feedId) {
+          return {
+            ...feedItem,
+            likes: result.likeCount
+          };
+        }
+        return feedItem;
+      }));
+      
     } catch (err) {
       console.error('좋아요 토글 실패:', err);
       
       // 오류 발생 시 원래 상태로 되돌림
       setLikedFeeds(prev => ({...prev, [feedId]: !prev[feedId]}));
       
-      setFeeds(feeds.map(feed => {
-        if (feed.id === feedId) {
+      setFeeds(feeds.map(feedItem => {
+        if (feedItem.id === feedId) {
           return {
-            ...feed,
-            likes: feed.likes + (likedFeeds[feedId] ? 1 : -1)
+            ...feedItem,
+            likes: feedItem.likes + (likedFeeds[feedId] ? 1 : -1)
           };
         }
-        return feed;
+        return feedItem;
       }));
     }
   };
@@ -216,6 +225,12 @@ export default function FeedScreen() {
     setRefreshing(true);
     fetchFeeds();
   };
+
+  // 게시글 클릭 시 상세 페이지로 이동
+  const handleFeedPress = useCallback((feed: FeedItem) => {
+    console.log('게시글 클릭:', feed.id, feed.type);
+    router.push(`/post-detail?postId=${feed.id}&type=${feed.type}`);
+  }, [router]);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -266,6 +281,7 @@ export default function FeedScreen() {
               onLike={() => toggleLike(feed.id)}
               onComment={() => openCommentModal(feed.id)}
               onSelectOption={(index: number) => selectOption(feed.id, index)}
+              onPress={() => handleFeedPress(feed)}
             />
           ))
         )}

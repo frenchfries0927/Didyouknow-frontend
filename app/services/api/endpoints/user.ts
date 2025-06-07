@@ -67,6 +67,19 @@ export const userApi = {
     }
   },
 
+  // 통합 게시물 상세 조회 (새로운 API - 타입에 관계없이 조회)
+  getUnifiedPostDetail: async (postId: number): Promise<any> => {
+    try {
+      console.log('API 호출: /api/posts/', postId, '/unified');
+      const response = await api.get<ApiResponse<any>>(`/api/posts/${postId}/unified`);
+      console.log('통합 게시물 상세 조회 응답:', response.data);
+      return response.data.data;
+    } catch (error) {
+      console.error('통합 게시물 상세 조회 실패:', error);
+      throw error;
+    }
+  },
+
   // 사용자 검색
   searchUsers: async (keyword: string): Promise<FollowUser[]> => {
     try {

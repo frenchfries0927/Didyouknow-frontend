@@ -27,6 +27,10 @@ export default function UserProfilePage() {
       setLoading(true);
       const profileData = await userApi.getUserProfile(Number(userId));
       const postsData = await userApi.getUserPosts(Number(userId));
+      
+      console.log('사용자 게시물 데이터:', postsData);
+      console.log('퀴즈 ID 15 데이터:', postsData.find(p => p.id === 15));
+      
       setProfile(profileData);
       setPosts(postsData);
     } catch (error) {
@@ -69,7 +73,10 @@ export default function UserProfilePage() {
   const renderPostItem = ({ item }: { item: UserPost }) => (
     <TouchableOpacity 
       style={styles.postImageContainer}
-      onPress={() => router.push(`/post-detail?postId=${item.id}`)}
+      onPress={() => {
+        console.log('게시물 클릭:', { id: item.id, type: item.type, title: item.title });
+        router.push(`/post-detail?postId=${item.id}&type=${item.type || 'knowledge'}`);
+      }}
     >
       {item.imageUrls && item.imageUrls.length > 0 ? (
         <Image 

@@ -10,6 +10,7 @@ type Props = {
   onLike: () => void;
   onSelectOption: (optionIndex: number) => void;
   onComment: () => void;
+  onPress?: () => void;
 };
 
 export default function QuizCard({ feed, selectedOption, onSelectOption, ...props }: Props) {
@@ -25,7 +26,10 @@ export default function QuizCard({ feed, selectedOption, onSelectOption, ...prop
                 styles.optionButton,
                 selectedOption === index && styles.selectedOption,
               ]}
-              onPress={() => onSelectOption(index)}
+              onPress={(e) => {
+                e.stopPropagation();
+                onSelectOption(index);
+              }}
             >
               <Text style={[
                 styles.optionText,

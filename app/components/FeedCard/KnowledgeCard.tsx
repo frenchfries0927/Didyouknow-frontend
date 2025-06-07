@@ -8,6 +8,7 @@ type Props = {
   liked: boolean;
   onLike: () => void;
   onComment: () => void;
+  onPress?: () => void;
 };
 
 export default function KnowledgeCard({ feed, ...props }: Props) {
