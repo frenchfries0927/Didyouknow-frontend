@@ -11,7 +11,7 @@ export default function ProfilePage() {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [posts, setPosts] = useState<UserPost[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'posts' | 'likes' | 'bookmarks'>('posts');
+
 
   useEffect(() => {
     loadProfileData();
@@ -128,72 +128,22 @@ export default function ProfilePage() {
         </TouchableOpacity>
       </View>
 
-      {/* 탭 메뉴 */}
-      <View style={styles.tabBar}>
-        <TouchableOpacity 
-          style={[styles.tab, activeTab === 'posts' && styles.activeTab]}
-          onPress={() => setActiveTab('posts')}
-        >
-          <Ionicons 
-            name="grid-outline" 
-            size={22} 
-            color={activeTab === 'posts' ? "#FF5A5F" : "#888"} 
-          />
-        </TouchableOpacity>
-        <TouchableOpacity 
-          style={[styles.tab, activeTab === 'likes' && styles.activeTab]}
-          onPress={() => setActiveTab('likes')}
-        >
-          <Ionicons 
-            name="heart-outline" 
-            size={22} 
-            color={activeTab === 'likes' ? "#FF5A5F" : "#888"} 
-          />
-        </TouchableOpacity>
-        <TouchableOpacity 
-          style={[styles.tab, activeTab === 'bookmarks' && styles.activeTab]}
-          onPress={() => setActiveTab('bookmarks')}
-        >
-          <Ionicons 
-            name="bookmark-outline" 
-            size={22} 
-            color={activeTab === 'bookmarks' ? "#FF5A5F" : "#888"} 
-          />
-        </TouchableOpacity>
-      </View>
-
       {/* 게시물 그리드 */}
-      {activeTab === 'posts' && (
       <FlatList
-          data={posts}
+        data={posts}
         numColumns={3}
-          renderItem={renderPostItem}
+        renderItem={renderPostItem}
         keyExtractor={item => item.id.toString()}
         contentContainerStyle={{ paddingBottom: 20 }}
         showsVerticalScrollIndicator={false}
-          ListEmptyComponent={
-            <View style={styles.emptyContainer}>
-              <Ionicons name="camera-outline" size={48} color="#ccc" />
-              <Text style={styles.emptyText}>아직 게시물이 없습니다</Text>
-              <Text style={styles.emptySubText}>첫 번째 게시물을 작성해보세요!</Text>
-            </View>
-          }
-        />
-      )}
-
-      {activeTab === 'likes' && (
-        <View style={styles.emptyContainer}>
-          <Ionicons name="heart-outline" size={48} color="#ccc" />
-          <Text style={styles.emptyText}>좋아요한 게시물이 없습니다</Text>
-        </View>
-      )}
-
-      {activeTab === 'bookmarks' && (
-        <View style={styles.emptyContainer}>
-          <Ionicons name="bookmark-outline" size={48} color="#ccc" />
-          <Text style={styles.emptyText}>북마크한 게시물이 없습니다</Text>
-        </View>
-      )}
+        ListEmptyComponent={
+          <View style={styles.emptyContainer}>
+            <Ionicons name="camera-outline" size={48} color="#ccc" />
+            <Text style={styles.emptyText}>아직 게시물이 없습니다</Text>
+            <Text style={styles.emptySubText}>첫 번째 게시물을 작성해보세요!</Text>
+          </View>
+        }
+      />
     </View>
   );
 }
@@ -295,24 +245,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#888'
   },
-  tabBar: {
-    flexDirection: 'row',
-    borderBottomWidth: 1,
-    borderBottomColor: '#F2F2F2',
-    backgroundColor: '#fff',
-    marginBottom: 2
-  },
-  tab: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 10,
-    borderBottomWidth: 2,
-    borderBottomColor: 'transparent'
-  },
-  activeTab: {
-    borderBottomColor: '#FF5A5F',
-  },
+
   postImageContainer: {
     width: '33.33%',
     aspectRatio: 1,

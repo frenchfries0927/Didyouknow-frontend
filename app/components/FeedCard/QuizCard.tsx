@@ -6,11 +6,13 @@ import BaseCard from './BaseCard';
 type Props = {
   feed: FeedItem;
   liked: boolean;
+  bookmarked?: boolean;
   selectedOption?: number;
   onLike: () => void;
   onSelectOption: (optionIndex: number) => void;
   onComment: () => void;
   onShare: () => void;
+  onBookmark?: () => void;
   onPress?: () => void;
 };
 

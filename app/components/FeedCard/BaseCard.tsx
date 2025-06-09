@@ -6,14 +6,16 @@ import { FeedItem } from '../../services/api/types';
 type BaseCardProps = {
   feed: FeedItem;
   liked: boolean;
+  bookmarked?: boolean;
   onLike: () => void;
   onComment: () => void;
   onShare: () => void;
+  onBookmark?: () => void;
   onPress?: () => void;
   children: React.ReactNode;
 };
 
-export default function BaseCard({ feed, liked, onLike, onComment, onShare, onPress, children }: BaseCardProps) {
+export default function BaseCard({ feed, liked, bookmarked, onLike, onComment, onShare, onBookmark, onPress, children }: BaseCardProps) {
   return (
     <TouchableOpacity 
       style={styles.card} 
@@ -106,15 +108,32 @@ export default function BaseCard({ feed, liked, onLike, onComment, onShare, onPr
             <Text style={styles.actionCount}>{feed.comments}</Text>
           </TouchableOpacity>
         </View>
-        <TouchableOpacity 
-          style={styles.shareButton}
-          onPress={(e) => {
-            e.stopPropagation();
-            onShare();
-          }}
-        >
-          <Ionicons name="share-outline" size={24} color="#666" />
-        </TouchableOpacity>
+        <View style={styles.rightActions}>
+          {onBookmark && (
+            <TouchableOpacity 
+              style={styles.actionButton}
+              onPress={(e) => {
+                e.stopPropagation();
+                onBookmark();
+              }}
+            >
+              <Ionicons 
+                name={bookmarked ? "bookmark" : "bookmark-outline"} 
+                size={22} 
+                color={bookmarked ? "#FF5A5F" : "#666"} 
+              />
+            </TouchableOpacity>
+          )}
+          <TouchableOpacity 
+            style={styles.shareButton}
+            onPress={(e) => {
+              e.stopPropagation();
+              onShare();
+            }}
+          >
+            <Ionicons name="share-outline" size={24} color="#666" />
+          </TouchableOpacity>
+        </View>
       </View>
     </TouchableOpacity>
   );
@@ -225,6 +244,10 @@ const styles = StyleSheet.create({
     borderTopColor: '#f0f0f0',
   },
   leftActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  rightActions: {
     flexDirection: 'row',
     alignItems: 'center',
   },
