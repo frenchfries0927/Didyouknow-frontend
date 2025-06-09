@@ -1,14 +1,21 @@
-import React, { useState } from 'react';
-import { 
-  SafeAreaView, View, Text, StyleSheet, TouchableOpacity, 
-  TextInput, ScrollView, Alert, Image, ActivityIndicator, Platform 
-} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import * as ImagePicker from 'expo-image-picker';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import axios from 'axios';
+import React, { useState } from 'react';
+import {
+  ActivityIndicator,
+  Alert, Image,
+  Platform,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
+} from 'react-native';
+import { quizApi } from './services/api/endpoints/quiz';
 
 const API_URL = 'http://localhost:8080';
 
@@ -90,26 +97,9 @@ export default function CreateQuizScreen() {
     try {
       setIsSubmitting(true);
       
-      // 사용자 정보 가져오기
-      const userInfo = await AsyncStorage.getItem('@user');
-      let user;
-      try {
-        user = userInfo ? JSON.parse(userInfo) : null;
-      } catch (parseError) {
-        console.error('사용자 정보 파싱 오류:', parseError);
-        user = null;
-      }
-      
-      // 사용자 정보가 없거나 ID가 없는 경우 기본값 사용
-      if (!user || !user.id) {
-        user = { id: 1 };  // 기본값으로 1 설정
-      }
-      
       // FormData 생성
       const formData = new FormData();
       
-      // 사용자 ID 추가 - 백엔드에서 @RequestParam("userId")로 수정했으므로
-      formData.append('userId', String(user.id));
       
       // 퀴즈 정보를 개별 필드로 추가
       formData.append('question', question);
@@ -149,20 +139,9 @@ export default function CreateQuizScreen() {
         }
       }
       
-      // FormData 내용 디버깅을 위해 출력
-      console.log('FormData 준비됨, 요청 전송 중... userId:', user.id);
       
       // API 호출 - Content-Type 헤더 명시적 추가
-      const response = await axios.post(
-        `${API_URL}/api/quizzes`, 
-        formData,
-        {
-          headers: {
-            'Content-Type': 'multipart/form-data',
-          },
-          withCredentials: true // CORS 요청에 쿠키 포함
-        }
-      );
+      await quizApi.create(formData);
       
       console.log('퀴즈 작성 성공');
       Alert.alert('성공', '퀴즈가 작성되었습니다.', [

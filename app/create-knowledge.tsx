@@ -1,14 +1,21 @@
-import React, { useState } from 'react';
-import { 
-  SafeAreaView, View, Text, StyleSheet, TouchableOpacity, 
-  TextInput, ScrollView, Alert, Image, ActivityIndicator, Platform 
-} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import * as ImagePicker from 'expo-image-picker';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import axios from 'axios';
+import React, { useState } from 'react';
+import {
+  ActivityIndicator,
+  Alert, Image,
+  Platform,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
+} from 'react-native';
+import { knowledgeApi } from './services/api/endpoints/knowledge';
 
 const API_URL = 'http://localhost:8080';
 
@@ -72,26 +79,11 @@ export default function CreateKnowledgeScreen() {
     try {
       setIsSubmitting(true);
       
-      // 사용자 정보 가져오기
-      const userInfo = await AsyncStorage.getItem('@user');
-      let user;
-      try {
-        user = userInfo ? JSON.parse(userInfo) : null;
-      } catch (parseError) {
-        console.error('사용자 정보 파싱 오류:', parseError);
-        user = null;
-      }
       
-      // 사용자 정보가 없거나 ID가 없는 경우 기본값 사용
-      if (!user || !user.id) {
-        user = { id: 1 };  // 기본값으로 1 설정
-      }
       
       // 폼데이터 생성
       const formData = new FormData();
       
-      // 사용자 ID 추가
-      formData.append('userId', String(user.id));
       
       // 제목, 내용 추가
       formData.append('title', title);
@@ -131,19 +123,9 @@ export default function CreateKnowledgeScreen() {
         }
       }
       
-      console.log('FormData 준비됨, 요청 전송 중... userId:', user.id);
       
       // API 호출
-      const response = await axios.post(
-        `${API_URL}/api/posts`, 
-        formData,
-        {
-          headers: {
-            'Content-Type': 'multipart/form-data',
-          },
-          withCredentials: true // CORS 요청에 쿠키 포함
-        }
-      );
+      knowledgeApi.create(formData);
       
       console.log('게시글 작성 성공');
       Alert.alert('성공', '게시글이 작성되었습니다.', [
