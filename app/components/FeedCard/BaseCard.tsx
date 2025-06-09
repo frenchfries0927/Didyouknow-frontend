@@ -8,24 +8,24 @@ type BaseCardProps = {
   liked: boolean;
   onLike: () => void;
   onComment: () => void;
-  onProfilePress?: () => void;
+  onPress?: () => void;
   children: React.ReactNode;
 };
 
-export default function BaseCard({ feed, liked, onLike, onComment, onProfilePress, children }: BaseCardProps) {
+export default function BaseCard({ feed, liked, onLike, onComment, onPress, children }: BaseCardProps) {
   return (
-    <View style={styles.card}>
+    <TouchableOpacity 
+      style={styles.card} 
+      onPress={onPress}
+      activeOpacity={0.95}
+    >
       {/* 게시물 헤더 */}
       <View style={styles.header}>
-        <TouchableOpacity 
-          style={styles.headerLeft}
-          onPress={onProfilePress}
-          activeOpacity={0.7}
-        >
+        <View style={styles.headerLeft}>
           <Image 
             source={{ 
-              uri: feed.authorProfileImageUrl || 
-                'https://ui-avatars.com/api/?name=' + encodeURIComponent(feed.authorNickname || '알+수+없음') 
+              uri: feed.profileImageUrl || 
+                'https://ui-avatars.com/api/?name=' + encodeURIComponent(feed.author || '알+수+없음') 
             }} 
             style={styles.profileImage}
             onError={() => console.log('프로필 이미지 로딩 오류')} 
@@ -36,7 +36,7 @@ export default function BaseCard({ feed, liked, onLike, onComment, onProfilePres
                 {feed.type === 'knowledge' ? '그거 아세요?' : '맞춰보실래요?'}
               </Text>
               <Text style={styles.byText}>by</Text>
-              <Text style={styles.authorName}>{feed.authorNickname || '알 수 없음'}</Text>
+              <Text style={styles.authorName}>{feed.author || '알 수 없음'}</Text>
             </View>
             <Text style={styles.createdAt}>
               {new Date(feed.createdAt).toLocaleDateString('ko-KR', {
@@ -46,8 +46,14 @@ export default function BaseCard({ feed, liked, onLike, onComment, onProfilePres
               })}
             </Text>
           </View>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.moreButton}>
+        </View>
+        <TouchableOpacity 
+          style={styles.moreButton}
+          onPress={(e) => {
+            e.stopPropagation();
+            // 더보기 메뉴 로직
+          }}
+        >
           <Ionicons name="ellipsis-vertical" size={20} color="#7d7d7d" />
         </TouchableOpacity>
       </View>
@@ -76,7 +82,10 @@ export default function BaseCard({ feed, liked, onLike, onComment, onProfilePres
         <View style={styles.leftActions}>
           <TouchableOpacity 
             style={styles.actionButton}
-            onPress={onLike}
+            onPress={(e) => {
+              e.stopPropagation();
+              onLike();
+            }}
           >
             <Ionicons 
               name={liked ? "heart" : "heart-outline"} 
@@ -87,17 +96,26 @@ export default function BaseCard({ feed, liked, onLike, onComment, onProfilePres
           </TouchableOpacity>
           <TouchableOpacity 
             style={styles.actionButton}
-            onPress={onComment}
+            onPress={(e) => {
+              e.stopPropagation();
+              onComment();
+            }}
           >
             <Ionicons name="chatbubble-outline" size={22} color="#666" />
             <Text style={styles.actionCount}>{feed.comments}</Text>
           </TouchableOpacity>
         </View>
-        <TouchableOpacity style={styles.shareButton}>
+        <TouchableOpacity 
+          style={styles.shareButton}
+          onPress={(e) => {
+            e.stopPropagation();
+            // 공유 로직
+          }}
+        >
           <Ionicons name="share-outline" size={24} color="#666" />
         </TouchableOpacity>
       </View>
-    </View>
+    </TouchableOpacity>
   );
 }
 

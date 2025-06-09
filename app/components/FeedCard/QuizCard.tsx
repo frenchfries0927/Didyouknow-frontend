@@ -10,12 +10,12 @@ type Props = {
   onLike: () => void;
   onSelectOption: (optionIndex: number) => void;
   onComment: () => void;
-  onProfilePress?: () => void;
+  onPress?: () => void;
 };
 
-export default function QuizCard({ feed, selectedOption, onSelectOption, onProfilePress, ...props }: Props) {
+export default function QuizCard({ feed, selectedOption, onSelectOption, ...props }: Props) {
   return (
-    <BaseCard feed={feed} onProfilePress={onProfilePress} {...props}>
+    <BaseCard feed={feed} {...props}>
       <View style={styles.quizContainer}>
         <Text style={styles.question}>{feed.content}</Text>
         <View style={styles.optionsContainer}>
@@ -26,7 +26,10 @@ export default function QuizCard({ feed, selectedOption, onSelectOption, onProfi
                 styles.optionButton,
                 selectedOption === index && styles.selectedOption,
               ]}
-              onPress={() => onSelectOption(index)}
+              onPress={(e) => {
+                e.stopPropagation();
+                onSelectOption(index);
+              }}
             >
               <Text style={[
                 styles.optionText,

@@ -37,7 +37,7 @@ export default function ProfilePage() {
   const renderPostItem = ({ item }: { item: UserPost }) => (
     <TouchableOpacity 
       style={styles.postImageContainer}
-      onPress={() => router.push(`/post-detail?postId=${item.id}`)}
+      onPress={() => router.push(`/post-detail?postId=${item.id}&type=${item.type || 'knowledge'}`)}
     >
       {item.imageUrls && item.imageUrls.length > 0 ? (
         <Image source={{ uri: item.imageUrls[0] }} style={styles.postImage} />

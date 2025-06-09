@@ -12,67 +12,115 @@ import {
   Alert,
   TextInput,
   FlatList,
-  Dimensions 
+  Dimensions,
+  SafeAreaView
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { feedApi } from './services/api/endpoints/feed';
+import { userApi } from './services/api/endpoints/user';
+import { FeedItem, Comment } from './services/api/types';
 
 const { width: screenWidth } = Dimensions.get('window');
-import { userApi } from './services/api/endpoints/user';
-import { feedApi } from './services/api/endpoints/feed';
-import { UserPost, Comment } from './services/api/types';
+
+// 현재 사용자 ID 가져오기 함수
+const getCurrentUserId = async (): Promise<number> => {
+  try {
+    const userStr = await AsyncStorage.getItem('@user');
+    if (userStr) {
+      const user = JSON.parse(userStr);
+      return user.id || 1;
+    }
+    return 1;
+  } catch (error) {
+    console.error('사용자 ID 가져오기 실패:', error);
+    return 1;
+  }
+};
 
 export default function PostDetailPage() {
   const router = useRouter();
-  const { postId } = useLocalSearchParams();
-  const [post, setPost] = useState<UserPost | null>(null);
+  const { postId, type } = useLocalSearchParams();
+  const [post, setPost] = useState<FeedItem | null>(null);
   const [comments, setComments] = useState<Comment[]>([]);
   const [loading, setLoading] = useState(true);
   const [commentText, setCommentText] = useState('');
   const [submittingComment, setSubmittingComment] = useState(false);
+  const [liked, setLiked] = useState(false);
   const [likeCount, setLikeCount] = useState(0);
-  const [isLiked, setIsLiked] = useState(false);
   const [commentCount, setCommentCount] = useState(0);
-  
-  // 임시 사용자 ID (실제 앱에서는 로그인된 사용자 ID 사용)
-  const currentUserId = 1;
 
   useEffect(() => {
-    if (postId) {
-      loadPostDetail();
-      loadComments();
+    if (postId && !isNaN(Number(postId))) {
+      const loadData = async () => {
+        await loadPostDetail();
+        await loadComments();
+      };
+      loadData();
+    } else {
+      console.error('유효하지 않은 게시물 ID:', postId);
+      Alert.alert('오류', '유효하지 않은 게시물입니다.');
+      router.back();
     }
   }, [postId]);
 
   const loadPostDetail = async () => {
     try {
       setLoading(true);
-      // 게시물 상세 조회 API 사용 시도, 실패하면 내 게시물에서 찾기
-      try {
-        const postDetail = await userApi.getPostDetail(Number(postId));
-        setPost(postDetail);
-        
-        // 좋아요 개수와 댓글 개수는 별도 API로 조회해야 할 수 있음
-        // 임시로 0으로 설정하고, 추후 실제 API 연동
-        setLikeCount(0);
-        setCommentCount(0);
-        setIsLiked(false);
-      } catch (detailError) {
-        // 상세 조회 실패 시 내 게시물에서 찾기
-        console.log('상세 조회 실패, 내 게시물에서 검색 중...');
-        const allPosts = await userApi.getMyPosts();
-        const foundPost = allPosts.find(p => p.id.toString() === postId);
-        if (foundPost) {
-          setPost(foundPost);
+      
+      // 통합 게시물 상세 조회 (Knowledge + Quiz 통합 API 사용)
+      const postDetail = await userApi.getUnifiedPostDetail(Number(postId));
+      
+      if (!postDetail) {
+        throw new Error('게시물 데이터를 찾을 수 없습니다.');
+      }
+      
+      // FeedItem 형태로 변환
+      const feedItem: FeedItem = {
+        id: postDetail.id || Number(postId),
+        type: postDetail.type || 'knowledge',
+        title: postDetail.title || '제목 없음',
+        content: postDetail.content || '내용 없음',
+        imageUrl: (postDetail.imageUrls && postDetail.imageUrls.length > 0) ? postDetail.imageUrls[0] : '',
+        authorId: 0, // 임시값
+        author: postDetail.authorNickname || '익명',
+        profileImageUrl: '',
+        createdAt: postDetail.publishDate || new Date().toISOString(),
+        likes: 0, // 초기값
+        comments: 0, // 초기값
+        options: postDetail.options || undefined
+      };
+      
+      setPost(feedItem);
+      
+      // 백엔드에서 받은 좋아요/댓글 정보가 있다면 사용
+      if (postDetail.likes !== undefined && postDetail.comments !== undefined) {
+        setLikeCount(Number(postDetail.likes) || 0);
+        setCommentCount(Number(postDetail.comments) || 0);
+        setLiked(Boolean(postDetail.isLiked));
+      } else {
+        // 별도로 좋아요/댓글 정보 조회
+        try {
+          const targetType = (type as 'knowledge' | 'quiz') || 'knowledge';
+          
+          // 댓글 수 조회
+          const commentsData = await feedApi.getComments(Number(postId), targetType);
+          setCommentCount(commentsData ? commentsData.length : 0);
+          
+          // 좋아요 정보는 현재 API에서 제공하지 않으므로 0으로 설정
+          setLikeCount(0);
+          setLiked(false);
+        } catch (error) {
+          console.log('좋아요/댓글 정보 조회 중 오류:', error);
           setLikeCount(0);
           setCommentCount(0);
-          setIsLiked(false);
-        } else {
-          Alert.alert('오류', '게시물을 찾을 수 없습니다.');
-          router.back();
+          setLiked(false);
         }
       }
+      
     } catch (error) {
       console.error('게시물 상세 로딩 실패:', error);
       Alert.alert('오류', '게시물을 불러오는데 실패했습니다.');
+      router.back();
     } finally {
       setLoading(false);
     }
@@ -80,38 +128,61 @@ export default function PostDetailPage() {
 
   const loadComments = async () => {
     try {
-      // 임시로 빈 배열 반환 (실제 댓글 API 구현 필요)
-      setComments([]);
-      setCommentCount(0);
+      if (!postId) {
+        console.log('loadComments: postId가 없습니다');
+        return;
+      }
+      
+      const targetType = (type as 'knowledge' | 'quiz') || 'knowledge';
+      console.log('loadComments 호출:', { postId: Number(postId), targetType });
+      
+      const commentsData = await feedApi.getComments(Number(postId), targetType);
+      console.log('loadComments 응답:', commentsData);
+      
+      // 댓글 데이터 안전하게 처리
+      const safeComments = (commentsData || []).map(comment => ({
+        ...comment,
+        author: comment.author || '익명',
+        authorId: comment.authorId || 0,
+        profileImageUrl: comment.profileImageUrl || '',
+        content: comment.content || '',
+        likes: comment.likes || 0
+      }));
+      
+      console.log('처리된 댓글 데이터:', safeComments);
+      setComments(safeComments);
+      setCommentCount(safeComments.length);
     } catch (error) {
       console.error('댓글 로딩 실패:', error);
-    }
-  };
-
-  const handleLikeToggle = async () => {
-    if (!post) return;
-    
-    try {
-      // 게시글 타입 결정 (제목이나 다른 필드로 구분)
-      const targetType = 'knowledge'; // 실제로는 게시글 타입에 따라 결정
-      
-      const result = await feedApi.toggleLike(post.id, targetType, currentUserId);
-      setIsLiked(result.isLiked);
-      setLikeCount(result.likeCount);
-    } catch (error) {
-      console.error('좋아요 토글 실패:', error);
-      Alert.alert('오류', '좋아요 처리에 실패했습니다.');
+      // 댓글 로딩 실패는 게시물 자체에는 영향을 주지 않음
+      setComments([]);
+      setCommentCount(0);
     }
   };
 
   const handleSubmitComment = async () => {
-    if (!commentText.trim()) return;
+    if (!commentText.trim() || !post) return;
 
     try {
       setSubmittingComment(true);
-      // 실제 댓글 추가 API 호출 필요
-      Alert.alert('알림', '댓글 기능은 준비 중입니다.');
+      const targetType = post.type;
+      const newComment = await feedApi.addComment(post.id, commentText.trim(), targetType);
+      
+      // 새 댓글을 안전하게 처리
+      const safeComment = {
+        ...newComment,
+        author: newComment.author || '익명',
+        authorId: newComment.authorId || 0,
+        profileImageUrl: newComment.profileImageUrl || '',
+        content: newComment.content || '',
+        likes: newComment.likes || 0
+      };
+      
+      // 댓글 목록에 즉시 추가
+      setComments(prev => [safeComment, ...prev]);
+      setCommentCount(prev => prev + 1);
       setCommentText('');
+      
     } catch (error) {
       console.error('댓글 작성 실패:', error);
       Alert.alert('오류', '댓글 작성에 실패했습니다.');
@@ -120,177 +191,248 @@ export default function PostDetailPage() {
     }
   };
 
+  const handleLike = async () => {
+    if (!post) return;
+
+    const originalLiked = liked;
+    const originalCount = likeCount;
+
+    try {
+      // UI 먼저 업데이트 (낙관적 업데이트)
+      setLiked(!liked);
+      setLikeCount(prev => liked ? Math.max(0, prev - 1) : prev + 1);
+      
+      // API 호출
+      const result = await feedApi.toggleLike(post.id, post.type);
+      
+      // 서버 응답으로 최종 업데이트
+      setLiked(result.isLiked);
+      setLikeCount(result.likeCount || 0);
+      
+    } catch (error) {
+      console.error('좋아요 처리 실패:', error);
+      // 오류 시 원래 상태로 되돌림
+      setLiked(originalLiked);
+      setLikeCount(originalCount);
+    }
+  };
+
   const renderComment = ({ item }: { item: Comment }) => (
     <View style={styles.commentItem}>
-      <Text style={styles.commentAuthor}>{item.author}</Text>
-      <Text style={styles.commentContent}>{item.content}</Text>
-      <Text style={styles.commentDate}>{item.createdAt}</Text>
+      <View style={styles.commentHeader}>
+        <View style={styles.commentProfileContainer}>
+          <View style={styles.commentProfileImage}>
+            {item.profileImageUrl ? (
+              <Image 
+                source={{ uri: item.profileImageUrl }} 
+                style={styles.commentProfileImageActual}
+                onError={() => console.log('댓글 프로필 이미지 로딩 오류')}
+              />
+            ) : (
+              <Text style={styles.commentProfileText}>
+                {(item.author || '익명').charAt(0).toUpperCase()}
+              </Text>
+            )}
+          </View>
+          <View style={styles.commentInfo}>
+            <Text style={styles.commentAuthor}>{item.author || '익명'}</Text>
+            <Text style={styles.commentDate}>
+              {new Date(item.createdAt).toLocaleDateString('ko-KR')}
+            </Text>
+          </View>
+        </View>
+        <TouchableOpacity style={styles.commentMoreButton}>
+          <Ionicons name="ellipsis-horizontal" size={16} color="#8e8e8e" />
+        </TouchableOpacity>
+      </View>
+      <Text style={styles.commentContent}>{item.content || ''}</Text>
+      <View style={styles.commentActions}>
+        <TouchableOpacity style={styles.commentActionButton}>
+          <Ionicons name="heart-outline" size={14} color="#8e8e8e" />
+          <Text style={styles.commentActionText}>{item.likes || 0}</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.commentActionButton}>
+          <Ionicons name="chatbubble-outline" size={14} color="#8e8e8e" />
+          <Text style={styles.commentActionText}>답글</Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 
   if (loading) {
     return (
-      <View style={[styles.container, styles.centered]}>
+      <SafeAreaView style={[styles.container, styles.centered]}>
         <ActivityIndicator size="large" color="#FF5A5F" />
         <Text style={styles.loadingText}>게시물을 불러오는 중...</Text>
-      </View>
+      </SafeAreaView>
     );
   }
 
   if (!post) {
     return (
-      <View style={[styles.container, styles.centered]}>
+      <SafeAreaView style={[styles.container, styles.centered]}>
         <Text style={styles.errorText}>게시물을 불러올 수 없습니다.</Text>
         <TouchableOpacity style={styles.retryButton} onPress={() => router.back()}>
           <Text style={styles.retryButtonText}>돌아가기</Text>
         </TouchableOpacity>
-      </View>
+      </SafeAreaView>
     );
   }
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       {/* 상단 바 */}
       <View style={styles.topBar}>
-        <TouchableOpacity onPress={() => router.back()}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
           <Ionicons name="arrow-back" size={24} color="#000" />
         </TouchableOpacity>
         <Text style={styles.topBarTitle}>게시물</Text>
-        <TouchableOpacity>
+        <TouchableOpacity style={styles.moreButton}>
           <Ionicons name="ellipsis-horizontal" size={24} color="#000" />
         </TouchableOpacity>
       </View>
 
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-        {/* 유저 정보 */}
-        <View style={styles.postHeader}>
-          <View style={styles.authorInfo}>
-            <View style={styles.profileImageContainer}>
-              <Image 
-                source={{ uri: 'https://via.placeholder.com/32x32/FF5A5F/FFFFFF?text=U' }} 
-                style={styles.profileImage} 
-              />
-            </View>
-            <View style={styles.authorDetails}>
-              <Text style={styles.authorName}>{post.authorNickname}</Text>
-              <Text style={styles.postDate}>{post.publishDate}</Text>
+        {/* 메인 게시물 - Thread 스타일 */}
+        <View style={styles.mainPost}>
+          {/* 작성자 정보 */}
+          <View style={styles.authorSection}>
+            <View style={styles.authorInfo}>
+              <View style={styles.profileImageContainer}>
+                <Text style={styles.profileImageText}>
+                  {(post.author || '익명').charAt(0).toUpperCase()}
+                </Text>
+              </View>
+              <View style={styles.authorDetails}>
+                <View style={styles.authorNameRow}>
+                  <Text style={styles.authorName}>{post.author || '익명'}</Text>
+                  <Text style={styles.postType}>
+                    {post.type === 'knowledge' ? ' • 그거 아세요?' : ' • 맞춰보실래요?'}
+                  </Text>
+                </View>
+                <Text style={styles.postDate}>
+                  {new Date(post.createdAt).toLocaleDateString('ko-KR', {
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric'
+                  })}
+                </Text>
+              </View>
             </View>
           </View>
-        </View>
 
-        {/* 제목 */}
-        <View style={styles.titleContainer}>
-          <Text style={styles.postTitle}>{post.title}</Text>
-        </View>
-
-        {/* 게시물 이미지들 */}
-        {post.imageUrls && post.imageUrls.length > 0 && (
-          <View style={styles.imageContainer}>
-            <ScrollView 
-              horizontal 
-              pagingEnabled 
-              showsHorizontalScrollIndicator={false}
-              style={styles.imageScrollView}
-            >
-              {post.imageUrls.map((imageUrl, index) => (
+          {/* 게시물 내용 */}
+          <View style={styles.contentSection}>
+            <Text style={styles.postTitle}>{post.title || ''}</Text>
+            <Text style={styles.postContent}>{post.content || ''}</Text>
+            
+            {/* 이미지 */}
+            {post.imageUrl ? (
+              <View style={styles.imageContainer}>
                 <Image 
-                  key={index} 
-                  source={{ uri: imageUrl }} 
+                  source={{ uri: post.imageUrl }} 
                   style={styles.postImage}
                   resizeMode="cover"
                 />
-              ))}
-            </ScrollView>
-            {post.imageUrls.length > 1 && (
-              <View style={styles.imageIndicatorContainer}>
-                {post.imageUrls.map((_, index) => (
-                  <View key={index} style={styles.imageIndicator} />
+              </View>
+            ) : null}
+
+            {/* 퀴즈 옵션 */}
+            {post.type === 'quiz' && post.options && post.options.length > 0 ? (
+              <View style={styles.quizOptions}>
+                {post.options.map((option, index) => (
+                  <TouchableOpacity key={index} style={styles.quizOption}>
+                    <Text style={styles.quizOptionText}>{option || ''}</Text>
+                  </TouchableOpacity>
                 ))}
               </View>
-            )}
+            ) : null}
           </View>
-        )}
 
-        {/* 내용 */}
-        <View style={styles.postContent}>
-          <Text style={styles.contentText}>{post.content}</Text>
+          {/* 액션 버튼 */}
+          <View style={styles.actionSection}>
+            <View style={styles.actionButtons}>
+              <TouchableOpacity style={styles.actionButton} onPress={handleLike}>
+                <Ionicons 
+                  name={liked ? "heart" : "heart-outline"} 
+                  size={22} 
+                  color={liked ? "#FF5A5F" : "#536471"} 
+                />
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.actionButton}>
+                <Ionicons name="chatbubble-outline" size={20} color="#536471" />
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.actionButton}>
+                <Ionicons name="repeat-outline" size={22} color="#536471" />
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.actionButton}>
+                <Ionicons name="share-outline" size={20} color="#536471" />
+              </TouchableOpacity>
+            </View>
+            
+            {/* 좋아요 및 댓글 수 */}
+            <View style={styles.statsSection}>
+              <Text style={styles.statsText}>
+                {`좋아요 ${likeCount || 0}개 • 댓글 ${commentCount || 0}개`}
+              </Text>
+            </View>
+          </View>
         </View>
 
-        {/* 액션 버튼들 */}
-        <View style={styles.actionButtons}>
-          <View style={styles.leftActions}>
-            <TouchableOpacity style={styles.actionButton} onPress={handleLikeToggle}>
-              <Ionicons 
-                name={isLiked ? "heart" : "heart-outline"} 
-                size={24} 
-                color={isLiked ? "#FF6B6B" : "#000"} 
+        {/* 댓글 섹션 */}
+        <View style={styles.commentsSection}>
+          <View style={styles.commentsSectionHeader}>
+            <Text style={styles.commentsSectionTitle}>{`댓글 ${commentCount || 0}개`}</Text>
+          </View>
+          
+          {/* 댓글 입력 */}
+          <View style={styles.commentInputSection}>
+            <View style={styles.commentInputContainer}>
+              <View style={styles.commentInputProfile}>
+                <Text style={styles.commentInputProfileText}>U</Text>
+              </View>
+              <TextInput
+                style={styles.commentInput}
+                placeholder="댓글을 입력하세요..."
+                placeholderTextColor="#8e8e8e"
+                value={commentText}
+                onChangeText={setCommentText}
+                multiline
+                maxLength={500}
               />
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.actionButton}>
-              <Ionicons name="chatbubble-outline" size={24} color="#000" />
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.actionButton}>
-              <Ionicons name="paper-plane-outline" size={24} color="#000" />
-            </TouchableOpacity>
+              {commentText.trim() ? (
+                <TouchableOpacity 
+                  style={styles.commentSubmitButton}
+                  onPress={handleSubmitComment}
+                  disabled={submittingComment}
+                >
+                  {submittingComment ? (
+                    <ActivityIndicator size="small" color="#FF5A5F" />
+                  ) : (
+                    <Text style={styles.commentSubmitText}>게시</Text>
+                  )}
+                </TouchableOpacity>
+              ) : null}
+            </View>
           </View>
-          <TouchableOpacity>
-            <Ionicons name="bookmark-outline" size={24} color="#000" />
-          </TouchableOpacity>
-        </View>
 
-        {/* 좋아요 수 */}
-        <View style={styles.likesContainer}>
-          <Text style={styles.likesText}>좋아요 {likeCount}개</Text>
-        </View>
-
-        {/* 댓글 보기 */}
-        <TouchableOpacity style={styles.viewCommentsButton}>
-          <Text style={styles.viewCommentsText}>댓글 {commentCount}개 모두 보기</Text>
-        </TouchableOpacity>
-
-        {/* 댓글 입력 */}
-        <View style={styles.commentInputContainer}>
-          <View style={styles.commentProfileImageContainer}>
-            <Image 
-              source={{ uri: 'https://via.placeholder.com/24x24/FF5A5F/FFFFFF?text=U' }} 
-              style={styles.commentProfileImage} 
-            />
-          </View>
-          <TextInput
-            style={styles.commentInput}
-            placeholder="댓글 달기..."
-            value={commentText}
-            onChangeText={setCommentText}
-            maxLength={500}
-          />
-          {commentText.trim() ? (
-            <TouchableOpacity 
-              style={styles.postCommentButton}
-              onPress={handleSubmitComment}
-              disabled={submittingComment}
-            >
-              {submittingComment ? (
-                <ActivityIndicator size="small" color="#0095F6" />
-              ) : (
-                <Text style={styles.postCommentText}>게시</Text>
-              )}
-            </TouchableOpacity>
-          ) : null}
-        </View>
-
-        {/* 댓글 목록 */}
-        {comments.length > 0 && (
-          <View style={styles.commentsSection}>
+          {/* 댓글 목록 */}
+          {comments.length > 0 ? (
             <FlatList
               data={comments}
               renderItem={renderComment}
               keyExtractor={(item) => item.id.toString()}
               scrollEnabled={false}
+              showsVerticalScrollIndicator={false}
             />
-          </View>
-        )}
+          ) : (
+            <View style={styles.noCommentsContainer}>
+              <Text style={styles.noCommentsText}>첫 번째 댓글을 작성해보세요!</Text>
+            </View>
+          )}
+        </View>
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -307,198 +449,287 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    height: 44,
+    height: 56,
     paddingHorizontal: 16,
     backgroundColor: '#fff',
     borderBottomWidth: 0.5,
-    borderBottomColor: '#dbdbdb'
+    borderBottomColor: '#e1e8ed'
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'flex-start'
   },
   topBarTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#000'
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#0f1419'
+  },
+  moreButton: {
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'flex-end'
   },
   scrollView: {
     flex: 1
   },
-  postHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
+  mainPost: {
     backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0'
+    borderBottomWidth: 0.5,
+    borderBottomColor: '#e1e8ed'
+  },
+  authorSection: {
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 12
   },
   authorInfo: {
     flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1
+    alignItems: 'flex-start'
   },
   profileImageContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    marginRight: 12,
-    backgroundColor: '#f5f5f5'
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#FF5A5F',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12
   },
-  profileImage: {
-    width: 40,
-    height: 40,
-    borderRadius: 20
+  profileImageText: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#fff'
   },
   authorDetails: {
     flex: 1
   },
+  authorNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center'
+  },
   authorName: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 2
+    fontWeight: '700',
+    color: '#0f1419'
+  },
+  postType: {
+    fontSize: 14,
+    color: '#536471',
+    marginLeft: 4
   },
   postDate: {
-    fontSize: 13,
-    color: '#666'
+    fontSize: 14,
+    color: '#536471',
+    marginTop: 2
   },
-  titleContainer: {
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    backgroundColor: '#fff'
+  contentSection: {
+    paddingHorizontal: 16,
+    paddingBottom: 12
   },
   postTitle: {
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: '700',
-    color: '#333',
-    lineHeight: 28
+    color: '#0f1419',
+    lineHeight: 28,
+    marginBottom: 8
+  },
+  postContent: {
+    fontSize: 16,
+    lineHeight: 24,
+    color: '#0f1419',
+    marginBottom: 12
   },
   imageContainer: {
     marginVertical: 12,
-    backgroundColor: '#f8f8f8'
-  },
-  imageScrollView: {
-    height: 300
+    borderRadius: 16,
+    overflow: 'hidden'
   },
   postImage: {
-    width: screenWidth,
+    width: '100%',
     height: 300
   },
-  imageIndicatorContainer: {
-    position: 'absolute',
-    bottom: 12,
-    left: 0,
-    right: 0,
-    flexDirection: 'row',
-    justifyContent: 'center'
+  quizOptions: {
+    marginTop: 16,
+    gap: 12
   },
-  imageIndicator: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: 'rgba(255,255,255,0.7)',
-    marginHorizontal: 2
+  quizOption: {
+    padding: 16,
+    borderRadius: 12,
+    backgroundColor: '#f7f9fa',
+    borderWidth: 1,
+    borderColor: '#e1e8ed'
   },
-  postContent: {
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    backgroundColor: '#fff'
-  },
-  contentText: {
+  quizOptionText: {
     fontSize: 16,
-    lineHeight: 24,
-    color: '#333'
+    color: '#0f1419',
+    textAlign: 'center'
+  },
+  actionSection: {
+    paddingHorizontal: 16,
+    paddingBottom: 16
   },
   actionButtons: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    backgroundColor: '#fff',
-    borderTopWidth: 1,
-    borderTopColor: '#f0f0f0'
-  },
-  leftActions: {
-    flexDirection: 'row'
+    marginBottom: 12
   },
   actionButton: {
-    marginRight: 20,
-    padding: 4
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12
   },
-  likesContainer: {
-    paddingHorizontal: 20,
-    paddingVertical: 8,
-    backgroundColor: '#fff'
+  statsSection: {
+    paddingTop: 8,
+    borderTopWidth: 0.5,
+    borderTopColor: '#e1e8ed'
   },
-  likesText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#333'
-  },
-  authorNameInContent: {
-    fontWeight: '600'
-  },
-  viewCommentsButton: {
-    paddingHorizontal: 20,
-    paddingVertical: 8,
-    backgroundColor: '#fff'
-  },
-  viewCommentsText: {
+  statsText: {
     fontSize: 14,
-    color: '#666'
+    color: '#536471'
+  },
+  commentsSection: {
+    backgroundColor: '#fff'
+  },
+  commentsSectionHeader: {
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    borderBottomWidth: 0.5,
+    borderBottomColor: '#e1e8ed'
+  },
+  commentsSectionTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#0f1419'
+  },
+  commentInputSection: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 0.5,
+    borderBottomColor: '#e1e8ed'
   },
   commentInputContainer: {
     flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderTopWidth: 0.5,
-    borderTopColor: '#dbdbdb'
+    alignItems: 'flex-start'
   },
-  commentProfileImageContainer: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+  commentInputProfile: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#FF5A5F',
+    justifyContent: 'center',
+    alignItems: 'center',
     marginRight: 12
   },
-  commentProfileImage: {
-    width: 24,
-    height: 24,
-    borderRadius: 12
+  commentInputProfileText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#fff'
   },
   commentInput: {
     flex: 1,
-    fontSize: 14,
-    color: '#000'
+    fontSize: 16,
+    color: '#0f1419',
+    minHeight: 32,
+    maxHeight: 120,
+    textAlignVertical: 'top'
   },
-  postCommentButton: {
+  commentSubmitButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: '#FF5A5F',
+    borderRadius: 16,
     marginLeft: 8
   },
-  postCommentText: {
+  commentSubmitText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#0095F6'
-  },
-  commentsSection: {
-    paddingHorizontal: 16
+    color: '#fff'
   },
   commentItem: {
-    paddingVertical: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 16,
     borderBottomWidth: 0.5,
-    borderBottomColor: '#efefef'
+    borderBottomColor: '#e1e8ed'
+  },
+  commentHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 8
+  },
+  commentProfileContainer: {
+    flexDirection: 'row',
+    alignItems: 'center'
+  },
+  commentProfileImage: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#FF5A5F',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 8
+  },
+  commentProfileImageActual: {
+    width: 32,
+    height: 32,
+    borderRadius: 16
+  },
+  commentProfileText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#fff'
+  },
+  commentInfo: {
+    flex: 1
   },
   commentAuthor: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#000',
-    marginBottom: 2
-  },
-  commentContent: {
-    fontSize: 14,
-    color: '#000',
-    marginBottom: 2
+    color: '#0f1419'
   },
   commentDate: {
     fontSize: 12,
+    color: '#536471'
+  },
+  commentMoreButton: {
+    width: 24,
+    height: 24,
+    justifyContent: 'center',
+    alignItems: 'center'
+  },
+  commentContent: {
+    fontSize: 15,
+    lineHeight: 20,
+    color: '#0f1419',
+    marginBottom: 8
+  },
+  commentActions: {
+    flexDirection: 'row',
+    alignItems: 'center'
+  },
+  commentActionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginRight: 16
+  },
+  commentActionText: {
+    fontSize: 12,
+    color: '#8e8e8e',
+    marginLeft: 4
+  },
+  noCommentsContainer: {
+    paddingVertical: 40,
+    alignItems: 'center'
+  },
+  noCommentsText: {
+    fontSize: 16,
     color: '#8e8e8e'
   },
   loadingText: {
@@ -513,7 +744,7 @@ const styles = StyleSheet.create({
     marginBottom: 16
   },
   retryButton: {
-    backgroundColor: '#0095F6',
+    backgroundColor: '#FF5A5F',
     paddingHorizontal: 20,
     paddingVertical: 10,
     borderRadius: 8

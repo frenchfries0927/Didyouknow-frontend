@@ -1,205 +1,201 @@
 import { Ionicons } from '@expo/vector-icons';
-import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Dimensions, Modal, RefreshControl, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import React, { useEffect, useState, useCallback } from 'react';
+import { ActivityIndicator, Dimensions, Modal, RefreshControl, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import FeedCard from '../components/FeedCard';
-import CommentModal from '../components/CommentModal';
 import { feedApi } from '../services/api/endpoints/feed';
-import { FeedItem } from '../services/api/types';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useGoogleAuth } from '../utils/auth';
+import { Comment, FeedItem } from '../services/api/types';
 
 // 화면 너비 가져오기
 const { width } = Dimensions.get('window');
 
 export default function FeedScreen() {
   const router = useRouter();
-  const { signOut } = useGoogleAuth();
   const [feeds, setFeeds] = useState<FeedItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [commentModalVisible, setCommentModalVisible] = useState(false);
   const [selectedFeedId, setSelectedFeedId] = useState<number | null>(null);
-  const [selectedFeedType, setSelectedFeedType] = useState<'knowledge' | 'quiz'>('knowledge');
+  const [commentText, setCommentText] = useState('');
+  const [comments, setComments] = useState<Comment[]>([]);
   const [selectedOptions, setSelectedOptions] = useState<Record<number, number>>({});
+  const [likedFeeds, setLikedFeeds] = useState<Record<number, boolean>>({});
   const [refreshing, setRefreshing] = useState(false);
   const [imageErrors, setImageErrors] = useState<{[key: number]: boolean}>({});
-  const [currentUserId, setCurrentUserId] = useState<number | null>(null);
-  const [currentUser, setCurrentUser] = useState<{id: number, nickname: string} | null>(null);
 
-  // 앱 시작 시 사용자 ID 설정
   useEffect(() => {
-    initializeUserId();
+    fetchFeeds();
   }, []);
 
-  const initializeUserId = async () => {
-    try {
-      // 실제 로그인된 사용자 정보를 가져오기
-      const userStr = await AsyncStorage.getItem('@user');
-      console.log('AsyncStorage에서 가져온 @user:', userStr);
-      
-      if (userStr) {
-        try {
-          const user = JSON.parse(userStr);
-          console.log('파싱된 user 객체:', user);
-          
-          if (user && user.id) {
-            setCurrentUserId(user.id);
-            setCurrentUser({ id: user.id, nickname: user.nickname || 'User' });
-            console.log(`로그인된 사용자 ID 사용: ${user.id}, 닉네임: ${user.nickname}`);
-            return;
-          }
-        } catch (parseError) {
-          console.error('User 객체 파싱 실패:', parseError);
-        }
-      }
-      
-      // 로그인된 사용자가 없으면 로그인 화면으로 이동
-      console.log('로그인된 사용자가 없습니다. 로그인 화면으로 이동합니다.');
-      router.replace('/screens/LoginScreen');
-    } catch (error) {
-      console.error('사용자 ID 초기화 실패:', error);
-      // 실패 시 로그인 화면으로 이동
-      router.replace('/screens/LoginScreen');
-    }
-  };
-
-  useEffect(() => {
-    if (currentUserId !== null) {
-      fetchFeeds();
-    }
-  }, [currentUserId]);
-
   const fetchFeeds = async () => {
-    if (!currentUserId) return; // currentUserId가 null이면 early return
-    
     setLoading(true);
     setError(null);
-    
     try {
-      // 사용자 ID와 함께 API 호출하여 정확한 좋아요 상태 가져오기
-      const feedsData = await feedApi.getFeeds(currentUserId);
-      console.log('API 응답 데이터:', JSON.stringify(feedsData, null, 2));
+      const feedsData = await feedApi.getFeeds();
+      console.log('피드 데이터:', feedsData);
+      setFeeds(feedsData);
       
-      // 각 피드 아이템의 comments 필드 확인
-      feedsData.forEach((item, index) => {
-        console.log(`피드 ${index + 1} (ID: ${item.id}):`, {
-          type: item.type,
-          title: item.title,
-          likes: item.likes,
-          comments: item.comments,
-          isLiked: item.isLiked,
-          rawComments: (item as any).comments,
-          allFields: Object.keys(item)
-        });
-      });
+      // 서버에서 받은 좋아요 상태 설정
+      const likedState = feedsData.reduce((acc, feed) => {
+        acc[feed.id] = feed.isLiked || false;
+        return acc;
+      }, {} as {[key: number]: boolean});
       
-      // 필드명 매핑 처리 - API 응답 구조에 따라 authorNickname 필드 설정
-      const mappedData = feedsData.map((item: FeedItem) => {
-        return {
-          ...item,
-          // id는 숫자 유지
-          id: item.id,
-          // authorId 매핑 (백엔드에서 추가됨)
-          authorId: (item as any).authorId || item.authorId,
-          // API 응답에서는 authorNickname이 아닌 author로 제공됨
-          authorNickname: (item as any).author || item.authorNickname || "알 수 없음",
-          // API 응답에서는 authorProfileImageUrl이 아닌 profileImageUrl로 제공됨
-          authorProfileImageUrl: (item as any).profileImageUrl || item.authorProfileImageUrl,
-          // imageUrl이 null일 경우 빈 문자열로 처리
-          imageUrl: item.imageUrl || '',
-          // 좋아요/댓글 관련 필드 확실하게 매핑
-          likes: item.likes || 0,
-          comments: item.comments || 0,
-          isLiked: item.isLiked || false
-        };
-      });
-      
-      console.log('매핑된 데이터 댓글 개수 확인:');
-      mappedData.forEach((item, index) => {
-        console.log(`매핑된 피드 ${index + 1} (ID: ${item.id}): comments = ${item.comments}`);
-      });
-      
-      setFeeds(mappedData);
+      setLikedFeeds(likedState);
     } catch (err) {
-      console.error('피드 불러오기 실패:', err);
-      setError('피드를 불러오는 중 오류가 발생했습니다.');
-      setFeeds([]);
+      console.error('피드 로딩 실패:', err);
+      setError('피드를 불러오는데 실패했습니다.');
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
   };
 
-  const openCommentModal = (feedId: number, feedType: 'knowledge' | 'quiz') => {
+  const openCommentModal = async (feedId: number) => {
     setSelectedFeedId(feedId);
-    setSelectedFeedType(feedType);
     setCommentModalVisible(true);
+    
+    try {
+      // 피드에서 타입 찾기
+      const feed = feeds.find(f => f.id === feedId);
+      const targetType = feed?.type || 'knowledge';
+      
+      // 실제 API 호출
+      const commentsData = await feedApi.getComments(feedId, targetType);
+      
+      // 댓글 데이터 안전하게 처리
+      const safeComments = (commentsData || []).map(comment => ({
+        ...comment,
+        author: comment.author || '익명',
+        authorId: comment.authorId || 0,
+        profileImageUrl: comment.profileImageUrl || '',
+        content: comment.content || '',
+        likes: comment.likes || 0
+      }));
+      
+      setComments(safeComments);
+    } catch (err) {
+      console.error('댓글 불러오기 실패:', err);
+      
+      // 임시 댓글 데이터
+      const mockComments: Comment[] = [
+        {
+          id: 1,
+          author: '김지현',
+          authorId: 1,
+          profileImageUrl: '',
+          content: '정말 흥미로운 사실이네요! 커피에 대해 이렇게 많은 화학물질이 있다는 걸 처음 알았어요.',
+          createdAt: '3시간 전',
+          likes: 12
+        },
+        {
+          id: 2,
+          author: '이승준',
+          authorId: 2,
+          profileImageUrl: '',
+          content: '매일 마시는 커피가 이렇게 복잡한 음료였다니 놀랍네요. 다음에 커피 마실 때는 더 음미하면서 마셔봐야겠어요!',
+          createdAt: '5시간 전',
+          likes: 8
+        }
+      ];
+      
+      setComments(mockComments);
+    }
   };
 
   const closeCommentModal = () => {
     setCommentModalVisible(false);
     setSelectedFeedId(null);
-    // 댓글 작성/삭제는 onCommentAdded 콜백에서 처리하므로 여기서는 새로고침하지 않음
+    setCommentText('');
+  };
+
+  const submitComment = async () => {
+    if (!commentText.trim() || !selectedFeedId) return;
+
+    try {
+      // 피드에서 타입 찾기
+      const feed = feeds.find(f => f.id === selectedFeedId);
+      const targetType = feed?.type || 'knowledge';
+      
+      const newComment = await feedApi.addComment(selectedFeedId, commentText.trim(), targetType);
+      
+      // 새 댓글을 안전하게 처리
+      const safeComment = {
+        ...newComment,
+        author: newComment.author || '익명',
+        authorId: newComment.authorId || 0,
+        profileImageUrl: newComment.profileImageUrl || '',
+        content: newComment.content || '',
+        likes: newComment.likes || 0
+      };
+      
+      setComments(prev => [safeComment, ...prev]);
+      setCommentText('');
+      
+      // 피드의 댓글 수 업데이트
+      setFeeds(prev => prev.map(feedItem => 
+        feedItem.id === selectedFeedId 
+          ? { ...feedItem, comments: feedItem.comments + 1 }
+          : feedItem
+      ));
+      
+    } catch (error) {
+      console.error('댓글 작성 실패:', error);
+    }
   };
 
   const toggleLike = async (feedId: number) => {
     try {
-      // 로그인 체크 (실제 앱에서는 AsyncStorage에서 사용자 정보 확인)
-      if (!currentUserId) {
-        Alert.alert('알림', '좋아요 기능을 사용하려면 로그인이 필요합니다.');
-        return;
-      }
-
-      // 해당 피드 찾기
       const feed = feeds.find(f => f.id === feedId);
       if (!feed) return;
 
-      console.log(`좋아요 토글 시작 - 사용자 ID: ${currentUserId}, 피드 ID: ${feedId}, 현재 좋아요: ${feed.isLiked}, 현재 개수: ${feed.likes}`);
-
-      // 낙관적 UI 업데이트 (즉시 반영)
-      const optimisticLiked = !feed.isLiked;
-      const optimisticCount = feed.isLiked ? feed.likes - 1 : feed.likes + 1;
+      // UI 먼저 업데이트
+      setLikedFeeds(prev => {
+        const isLiked = prev[feedId];
+        return {...prev, [feedId]: !isLiked};
+      });
       
-      console.log(`낙관적 업데이트 - 새 좋아요: ${optimisticLiked}, 새 개수: ${optimisticCount}`);
+      // 좋아요 수 업데이트
+      setFeeds(feeds.map(feedItem => {
+        if (feedItem.id === feedId) {
+          return {
+            ...feedItem,
+            likes: feedItem.likes + (likedFeeds[feedId] ? -1 : 1)
+          };
+        }
+        return feedItem;
+      }));
       
-      setFeeds(prevFeeds => 
-        prevFeeds.map(f => 
-          f.id === feedId 
-            ? { ...f, likes: optimisticCount, isLiked: optimisticLiked }
-            : f
-        )
-      );
-
-      try {
-        // API 호출
-        const result = await feedApi.toggleLike(feedId, feed.type, currentUserId);
-        
-        console.log(`서버 응답 - 좋아요: ${result.isLiked}, 개수: ${result.likeCount}`);
-        
-        // 서버 응답으로 최종 상태 업데이트
-        setFeeds(prevFeeds => 
-          prevFeeds.map(f => 
-            f.id === feedId 
-              ? { ...f, likes: result.likeCount, isLiked: result.isLiked }
-              : f
-          )
-        );
-      } catch (apiError) {
-        console.log('API 호출 실패, 원래 상태로 되돌림');
-        // API 실패 시 원래 상태로 되돌림
-        setFeeds(prevFeeds => 
-          prevFeeds.map(f => 
-            f.id === feedId 
-              ? { ...f, likes: feed.likes, isLiked: feed.isLiked }
-              : f
-          )
-        );
-        throw apiError;
-      }
+      // 실제 API 호출
+      const result = await feedApi.toggleLike(feedId, feed.type);
+      
+      // 서버 응답으로 최종 업데이트
+      setLikedFeeds(prev => ({...prev, [feedId]: result.isLiked}));
+      setFeeds(feeds.map(feedItem => {
+        if (feedItem.id === feedId) {
+          return {
+            ...feedItem,
+            likes: result.likeCount
+          };
+        }
+        return feedItem;
+      }));
+      
     } catch (err) {
       console.error('좋아요 토글 실패:', err);
-      Alert.alert('오류', '좋아요 처리에 실패했습니다.');
+      
+      // 오류 발생 시 원래 상태로 되돌림
+      setLikedFeeds(prev => ({...prev, [feedId]: !prev[feedId]}));
+      
+      setFeeds(feeds.map(feedItem => {
+        if (feedItem.id === feedId) {
+          return {
+            ...feedItem,
+            likes: feedItem.likes + (likedFeeds[feedId] ? 1 : -1)
+          };
+        }
+        return feedItem;
+      }));
     }
   };
 
@@ -230,66 +226,18 @@ export default function FeedScreen() {
     fetchFeeds();
   };
 
-  // 프로필 클릭 핸들러 추가
-  const handleProfilePress = (authorId: number) => {
-    console.log('프로필 클릭:', authorId);
-    router.push(`/user-profile?userId=${authorId}`);
-  };
-
-  // 특정 게시글의 댓글 개수만 업데이트하는 함수
-  const updateCommentCount = async (feedId: number, feedType: 'knowledge' | 'quiz') => {
-    try {
-      // 백엔드에서 댓글 개수 조회
-      const targetType = feedType; // knowledge는 knowledge, quiz는 quiz 그대로 사용
-      const newCommentCount = await feedApi.getCommentCount(targetType, feedId);
-      
-      // 해당 피드의 댓글 개수만 업데이트
-      setFeeds(prevFeeds => 
-        prevFeeds.map(feed => 
-          feed.id === feedId 
-            ? { ...feed, comments: newCommentCount }
-            : feed
-        )
-      );
-      
-      console.log(`피드 ID ${feedId}의 댓글 개수 업데이트: ${newCommentCount}`);
-    } catch (error) {
-      console.error('댓글 개수 업데이트 실패:', error);
-      // 실패 시 전체 피드 새로고침으로 폴백
-      fetchFeeds();
-    }
-  };
+  // 게시글 클릭 시 상세 페이지로 이동
+  const handleFeedPress = useCallback((feed: FeedItem) => {
+    console.log('게시글 클릭:', feed.id, feed.type);
+    router.push(`/post-detail?postId=${feed.id}&type=${feed.type}`);
+  }, [router]);
 
   return (
     <SafeAreaView style={styles.container}>
       {/* 상단 네비게이션 바 */}
       <View style={styles.navbar}>
-        <View style={styles.leftNavSection}>
-          <Text style={styles.logoText}>logo</Text>
-          {currentUser && (
-            <Text style={styles.userIdText}>{currentUser.nickname} (ID: {currentUser.id})</Text>
-          )}
-        </View>
+        <Text style={styles.logoText}>logo</Text>
         <View style={styles.navbarRight}>
-          <TouchableOpacity 
-            style={styles.navButton}
-            onPress={async () => {
-              try {
-                const success = await signOut();
-                if (success) {
-                  console.log('로그아웃 성공');
-                  router.replace('/screens/LoginScreen');
-                } else {
-                  Alert.alert('오류', '로그아웃에 실패했습니다.');
-                }
-              } catch (error) {
-                console.error('로그아웃 오류:', error);
-                Alert.alert('오류', '로그아웃에 실패했습니다.');
-              }
-            }}
-          >
-            <Ionicons name="log-out-outline" size={24} color="#000" />
-          </TouchableOpacity>
           <TouchableOpacity style={styles.navButton}>
             <Ionicons name="notifications-outline" size={24} color="#000" />
           </TouchableOpacity>
@@ -328,30 +276,76 @@ export default function FeedScreen() {
             <FeedCard
               key={feed.id}
               feed={feed}
-              liked={feed.isLiked}
+              liked={likedFeeds[feed.id]}
               selectedOption={selectedOptions[feed.id]}
               onLike={() => toggleLike(feed.id)}
-              onSelectOption={(optionIndex) => selectOption(feed.id, optionIndex)}
-              onComment={() => openCommentModal(feed.id, feed.type)}
-              onProfilePress={() => handleProfilePress(feed.authorId)}
+              onComment={() => openCommentModal(feed.id)}
+              onSelectOption={(index: number) => selectOption(feed.id, index)}
+              onPress={() => handleFeedPress(feed)}
             />
           ))
         )}
       </ScrollView>
 
       {/* 댓글 모달 */}
-      {selectedFeedId && (
-        <CommentModal
-          visible={commentModalVisible}
-          onClose={closeCommentModal}
-          targetType={selectedFeedType}
-          targetId={selectedFeedId}
-          onCommentAdded={() => {
-            // 댓글 추가 시 해당 게시글의 댓글 개수만 업데이트
-            updateCommentCount(selectedFeedId, selectedFeedType);
-          }}
-        />
-      )}
+      <Modal
+        visible={commentModalVisible}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={closeCommentModal}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>댓글</Text>
+              <TouchableOpacity style={styles.closeButton} onPress={closeCommentModal}>
+                <Ionicons name="close" size={24} color="#000" />
+              </TouchableOpacity>
+            </View>
+            
+            <ScrollView style={styles.commentList}>
+              {comments.map(comment => (
+                <View key={comment.id} style={styles.commentItem}>
+                  <View style={styles.commentAvatar} />
+                  <View style={styles.commentContent}>
+                    <View style={styles.commentMeta}>
+                      <Text style={styles.commentAuthor}>{comment.author}</Text>
+                      <Text style={styles.commentTime}>{comment.createdAt}</Text>
+                    </View>
+                    <Text style={styles.commentText}>{comment.content}</Text>
+                    <View style={styles.commentActions}>
+                      <TouchableOpacity style={styles.commentLike}>
+                        <Ionicons name="heart-outline" size={16} color="#7d7d7d" />
+                        <Text style={styles.commentLikeCount}>{comment.likes}</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                </View>
+              ))}
+            </ScrollView>
+            
+            <View style={styles.commentInput}>
+              <TextInput
+                style={styles.textInput}
+                placeholder="댓글을 입력하세요..."
+                value={commentText}
+                onChangeText={setCommentText}
+                multiline={false}
+              />
+              <TouchableOpacity 
+                style={[
+                  styles.sendButton,
+                  commentText.trim() === '' && styles.disabledSendButton
+                ]}
+                onPress={submitComment}
+                disabled={commentText.trim() === ''}
+              >
+                <Ionicons name="send" size={18} color="#fff" />
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -407,19 +401,10 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 1,
   },
-  leftNavSection: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
   logoText: {
     fontSize: 20,
     fontWeight: '700',
     color: '#FF6B6B',
-  },
-  userIdText: {
-    fontSize: 14,
-    color: '#7d7d7d',
-    marginLeft: 8,
   },
   navbarRight: {
     flexDirection: 'row',
