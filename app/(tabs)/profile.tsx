@@ -76,9 +76,9 @@ export default function ProfilePage() {
         <Ionicons name="chevron-back" size={24} color="#222" />
         <Text style={styles.topBarTitle}>프로필</Text>
         <View style={styles.topBarActions}>
-          <TouchableOpacity onPress={() => router.push('/settings')}>
-            <Ionicons name="settings-outline" size={22} color="#222" />
-          </TouchableOpacity>
+        <TouchableOpacity onPress={() => router.push('/settings')}>
+          <Ionicons name="settings-outline" size={22} color="#222" />
+        </TouchableOpacity>
         </View>
       </View>
 
@@ -164,13 +164,13 @@ export default function ProfilePage() {
 
       {/* 게시물 그리드 */}
       {activeTab === 'posts' && (
-        <FlatList
+      <FlatList
           data={posts}
-          numColumns={3}
+        numColumns={3}
           renderItem={renderPostItem}
-          keyExtractor={item => item.id.toString()}
-          contentContainerStyle={{ paddingBottom: 20 }}
-          showsVerticalScrollIndicator={false}
+        keyExtractor={item => item.id.toString()}
+        contentContainerStyle={{ paddingBottom: 20 }}
+        showsVerticalScrollIndicator={false}
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
               <Ionicons name="camera-outline" size={48} color="#ccc" />

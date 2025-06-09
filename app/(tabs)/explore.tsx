@@ -2,21 +2,23 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import { Dimensions, FlatList, Image, StyleSheet, Text, TextInput, TouchableOpacity, View, ActivityIndicator, Alert } from 'react-native';
+import { useRouter } from 'expo-router';
 import { userApi } from '../services/api/endpoints/user';
 import { followApi } from '../services/api/endpoints/follow';
 import { FollowUser } from '../services/api/types';
 
 export default function ExplorePage() {
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState<'posts' | 'users'>('posts');
   const [searchKeyword, setSearchKeyword] = useState('');
   const [searchResults, setSearchResults] = useState<FollowUser[]>([]);
   const [loading, setLoading] = useState(false);
 
   // 모의 게시물 데이터
-  const exploreMockData = Array.from({ length: 20 }, (_, i) => ({
-    id: i,
-    imageUrl: `https://picsum.photos/id/${i + 100}/300/300`
-  }));
+const exploreMockData = Array.from({ length: 20 }, (_, i) => ({
+  id: i,
+  imageUrl: `https://picsum.photos/id/${i + 100}/300/300`
+}));
 
   const searchUsers = async () => {
     if (!searchKeyword.trim()) {
@@ -49,11 +51,12 @@ export default function ExplorePage() {
       
       // 상태 업데이트
       setSearchResults(prev => 
-        prev.map(user => 
-          user.userId === userId 
+        prev.map(user => {
+          const userIdToCheck = user.id || user.userId;
+          return userIdToCheck === userId 
             ? { ...user, isFollowing: !isCurrentlyFollowing }
-            : user
-        )
+            : user;
+        })
       );
     } catch (error) {
       console.error('팔로우 토글 실패:', error);
@@ -61,33 +64,54 @@ export default function ExplorePage() {
     }
   };
 
-  const renderUserItem = ({ item }: { item: FollowUser }) => (
-    <View style={styles.userItem}>
-      <Image 
-        source={{ 
-          uri: item.profileImageUrl || 'https://via.placeholder.com/50x50/FF5A5F/FFFFFF?text=U' 
-        }} 
-        style={styles.profileImage} 
-      />
-      <View style={styles.userInfo}>
-        <Text style={styles.nickname}>{item.nickname}</Text>
+  // 사용자 프로필 클릭 핸들러 추가
+  const handleUserProfilePress = (userId: number) => {
+    console.log('사용자 프로필 클릭:', userId);
+    router.push(`/user-profile?userId=${userId}`);
+  };
+
+  const renderUserItem = ({ item }: { item: FollowUser }) => {
+    const userIdValue = item.id || item.userId;
+    
+    if (!userIdValue) {
+      console.warn('사용자 ID가 없습니다:', item);
+      return null;
+    }
+
+    return (
+      <View style={styles.userItem}>
+        <TouchableOpacity 
+          style={styles.userInfoContainer}
+          onPress={() => handleUserProfilePress(userIdValue)}
+          activeOpacity={0.7}
+        >
+          <Image 
+            source={{ 
+              uri: item.profileImageUrl || 'https://via.placeholder.com/50x50/FF5A5F/FFFFFF?text=U' 
+            }} 
+            style={styles.profileImage} 
+          />
+          <View style={styles.userInfo}>
+            <Text style={styles.nickname}>{item.nickname}</Text>
+          </View>
+        </TouchableOpacity>
+        <TouchableOpacity 
+          style={[
+            styles.followButton, 
+            item.isFollowing && styles.followingButton
+          ]}
+          onPress={() => handleFollowToggle(userIdValue, item.isFollowing || false)}
+        >
+          <Text style={[
+            styles.followButtonText,
+            item.isFollowing && styles.followingButtonText
+          ]}>
+            {item.isFollowing ? '팔로잉' : '팔로우'}
+          </Text>
+        </TouchableOpacity>
       </View>
-      <TouchableOpacity 
-        style={[
-          styles.followButton, 
-          item.isFollowing && styles.followingButton
-        ]}
-        onPress={() => handleFollowToggle(item.userId, item.isFollowing || false)}
-      >
-        <Text style={[
-          styles.followButtonText,
-          item.isFollowing && styles.followingButtonText
-        ]}>
-          {item.isFollowing ? '팔로잉' : '팔로우'}
-        </Text>
-      </TouchableOpacity>
-    </View>
-  );
+    );
+  };
 
   const renderPostItem = ({ item }: { item: any }) => (
     <View style={styles.imageContainer}>
@@ -101,7 +125,7 @@ export default function ExplorePage() {
       <View style={styles.header}>
         <Text style={styles.headerTitle}>탐색</Text>
       </View>
-
+      
       {/* 검색 입력 */}
       <View style={styles.searchContainer}>
         <View style={styles.searchInputContainer}>
@@ -156,9 +180,9 @@ export default function ExplorePage() {
 
       {/* 컨텐츠 */}
       {activeTab === 'posts' ? (
-        <FlatList
-          data={exploreMockData}
-          numColumns={3}
+      <FlatList
+        data={exploreMockData}
+        numColumns={3}
           renderItem={renderPostItem}
           keyExtractor={item => item.id.toString()}
           contentContainerStyle={{ paddingBottom: 20 }}
@@ -175,7 +199,10 @@ export default function ExplorePage() {
             <FlatList
               data={searchResults}
               renderItem={renderUserItem}
-              keyExtractor={(item, index) => item?.userId?.toString() || `user-${index}`}
+              keyExtractor={(item, index) => {
+                const userIdValue = item?.id || item?.userId;
+                return userIdValue?.toString() || `user-${index}`;
+              }}
               contentContainerStyle={{ paddingBottom: 20 }}
               showsVerticalScrollIndicator={false}
               ListEmptyComponent={
@@ -190,13 +217,13 @@ export default function ExplorePage() {
                     <Ionicons name="people-outline" size={48} color="#ccc" />
                     <Text style={styles.emptyText}>사용자를 검색해보세요</Text>
                     <Text style={styles.emptySubText}>닉네임으로 다른 사용자를 찾을 수 있습니다</Text>
-                  </View>
+          </View>
                 )
               }
             />
           )}
         </>
-      )}
+        )}
     </View>
   );
 }
@@ -303,6 +330,11 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: '#F8F8F8'
+  },
+  userInfoContainer: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center'
   },
   profileImage: {
     width: 50,

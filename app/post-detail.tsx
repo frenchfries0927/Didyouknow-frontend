@@ -17,6 +17,7 @@ import {
 
 const { width: screenWidth } = Dimensions.get('window');
 import { userApi } from './services/api/endpoints/user';
+import { feedApi } from './services/api/endpoints/feed';
 import { UserPost, Comment } from './services/api/types';
 
 export default function PostDetailPage() {
@@ -27,6 +28,12 @@ export default function PostDetailPage() {
   const [loading, setLoading] = useState(true);
   const [commentText, setCommentText] = useState('');
   const [submittingComment, setSubmittingComment] = useState(false);
+  const [likeCount, setLikeCount] = useState(0);
+  const [isLiked, setIsLiked] = useState(false);
+  const [commentCount, setCommentCount] = useState(0);
+  
+  // 임시 사용자 ID (실제 앱에서는 로그인된 사용자 ID 사용)
+  const currentUserId = 1;
 
   useEffect(() => {
     if (postId) {
@@ -42,6 +49,12 @@ export default function PostDetailPage() {
       try {
         const postDetail = await userApi.getPostDetail(Number(postId));
         setPost(postDetail);
+        
+        // 좋아요 개수와 댓글 개수는 별도 API로 조회해야 할 수 있음
+        // 임시로 0으로 설정하고, 추후 실제 API 연동
+        setLikeCount(0);
+        setCommentCount(0);
+        setIsLiked(false);
       } catch (detailError) {
         // 상세 조회 실패 시 내 게시물에서 찾기
         console.log('상세 조회 실패, 내 게시물에서 검색 중...');
@@ -49,6 +62,9 @@ export default function PostDetailPage() {
         const foundPost = allPosts.find(p => p.id.toString() === postId);
         if (foundPost) {
           setPost(foundPost);
+          setLikeCount(0);
+          setCommentCount(0);
+          setIsLiked(false);
         } else {
           Alert.alert('오류', '게시물을 찾을 수 없습니다.');
           router.back();
@@ -66,8 +82,25 @@ export default function PostDetailPage() {
     try {
       // 임시로 빈 배열 반환 (실제 댓글 API 구현 필요)
       setComments([]);
+      setCommentCount(0);
     } catch (error) {
       console.error('댓글 로딩 실패:', error);
+    }
+  };
+
+  const handleLikeToggle = async () => {
+    if (!post) return;
+    
+    try {
+      // 게시글 타입 결정 (제목이나 다른 필드로 구분)
+      const targetType = 'knowledge'; // 실제로는 게시글 타입에 따라 결정
+      
+      const result = await feedApi.toggleLike(post.id, targetType, currentUserId);
+      setIsLiked(result.isLiked);
+      setLikeCount(result.likeCount);
+    } catch (error) {
+      console.error('좋아요 토글 실패:', error);
+      Alert.alert('오류', '좋아요 처리에 실패했습니다.');
     }
   };
 
@@ -186,8 +219,12 @@ export default function PostDetailPage() {
         {/* 액션 버튼들 */}
         <View style={styles.actionButtons}>
           <View style={styles.leftActions}>
-            <TouchableOpacity style={styles.actionButton}>
-              <Ionicons name="heart-outline" size={24} color="#000" />
+            <TouchableOpacity style={styles.actionButton} onPress={handleLikeToggle}>
+              <Ionicons 
+                name={isLiked ? "heart" : "heart-outline"} 
+                size={24} 
+                color={isLiked ? "#FF6B6B" : "#000"} 
+              />
             </TouchableOpacity>
             <TouchableOpacity style={styles.actionButton}>
               <Ionicons name="chatbubble-outline" size={24} color="#000" />
@@ -203,12 +240,12 @@ export default function PostDetailPage() {
 
         {/* 좋아요 수 */}
         <View style={styles.likesContainer}>
-          <Text style={styles.likesText}>좋아요 0개</Text>
+          <Text style={styles.likesText}>좋아요 {likeCount}개</Text>
         </View>
 
         {/* 댓글 보기 */}
         <TouchableOpacity style={styles.viewCommentsButton}>
-          <Text style={styles.viewCommentsText}>댓글 {comments.length}개 모두 보기</Text>
+          <Text style={styles.viewCommentsText}>댓글 {commentCount}개 모두 보기</Text>
         </TouchableOpacity>
 
         {/* 댓글 입력 */}
