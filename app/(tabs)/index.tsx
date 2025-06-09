@@ -23,6 +23,7 @@ export default function FeedScreen() {
   const [selectedOptions, setSelectedOptions] = useState<Record<number, number>>({});
   const [likedFeeds, setLikedFeeds] = useState<Record<number, boolean>>({});
   const [bookmarkedFeeds, setBookmarkedFeeds] = useState<Record<number, boolean>>({});
+  const [currentUserId, setCurrentUserId] = useState<number>(2);
   const [refreshing, setRefreshing] = useState(false);
   const [imageErrors, setImageErrors] = useState<{[key: number]: boolean}>({});
 
@@ -270,6 +271,20 @@ export default function FeedScreen() {
     }
   };
 
+  const handleDelete = async (feedId: number, type: 'knowledge' | 'quiz') => {
+    try {
+      await feedApi.deletePost(feedId, type);
+      
+      // 피드에서 제거
+      setFeeds(prev => prev.filter(feed => feed.id !== feedId));
+      
+      Alert.alert('', '게시물이 삭제되었습니다.');
+    } catch (error) {
+      console.error('게시물 삭제 실패:', error);
+      Alert.alert('오류', '게시물 삭제에 실패했습니다.');
+    }
+  };
+
   const handleShare = async (feedId: number) => {
     console.log('공유 버튼 클릭됨, feedId:', feedId);
     
@@ -366,21 +381,35 @@ export default function FeedScreen() {
             </TouchableOpacity>
           </View>
         ) : (
-          feeds.map((feed) => (
-            <FeedCard
-              key={feed.id}
-              feed={feed}
-              liked={likedFeeds[feed.id]}
-              bookmarked={bookmarkedFeeds[feed.id]}
-              selectedOption={selectedOptions[feed.id]}
-              onLike={() => toggleLike(feed.id)}
-              onComment={() => openCommentModal(feed.id)}
-              onShare={() => handleShare(feed.id)}
-              onBookmark={() => toggleBookmark(feed.id)}
-              onSelectOption={(index: number) => selectOption(feed.id, index)}
-              onPress={() => handleFeedPress(feed)}
-            />
-          ))
+          feeds.map((feed) => {
+            // 실제 작성자와 현재 사용자 비교 (테스트를 위해 여러 ID 시도)
+            const showDeleteButton = feed.authorId === currentUserId;
+            console.log('피드 아이템 렌더링:', {
+              feedId: feed.id,
+              authorId: feed.authorId,
+              currentUserId,
+              showDeleteButton,
+              author: feed.author
+            });
+            
+            return (
+              <FeedCard
+                key={feed.id}
+                feed={feed}
+                liked={likedFeeds[feed.id]}
+                bookmarked={bookmarkedFeeds[feed.id]}
+                showDeleteButton={showDeleteButton}
+                selectedOption={selectedOptions[feed.id]}
+                onLike={() => toggleLike(feed.id)}
+                onComment={() => openCommentModal(feed.id)}
+                onShare={() => handleShare(feed.id)}
+                onBookmark={() => toggleBookmark(feed.id)}
+                onDelete={() => handleDelete(feed.id, feed.type)}
+                onSelectOption={(index: number) => selectOption(feed.id, index)}
+                onPress={() => handleFeedPress(feed)}
+              />
+            );
+          })
         )}
       </ScrollView>
 

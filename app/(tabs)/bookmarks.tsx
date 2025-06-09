@@ -13,6 +13,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import BaseCard from '../components/FeedCard/BaseCard';
 import { bookmarkApi, BookmarkItem } from '../services/api/endpoints/bookmark';
+import { feedApi } from '../services/api/endpoints/feed';
 import { showShareOptions } from '../utils/share';
 import { FeedItem } from '../services/api/types';
 
@@ -20,6 +21,7 @@ export default function BookmarksPage() {
   const [bookmarkFeed, setBookmarkFeed] = useState<BookmarkItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<number>(1);
   const router = useRouter();
 
   useEffect(() => {
@@ -94,6 +96,20 @@ export default function BookmarksPage() {
     router.push(`/post-detail?postId=${postId}&type=${type}`);
   };
 
+  const handleDelete = async (postId: number, type: 'knowledge' | 'quiz') => {
+    try {
+      await feedApi.deletePost(postId, type);
+      
+      // 북마크 피드에서 제거
+      setBookmarkFeed(prev => prev.filter(item => item.id !== postId));
+      
+      Alert.alert('', '게시물이 삭제되었습니다.');
+    } catch (error) {
+      console.error('게시물 삭제 실패:', error);
+      Alert.alert('오류', '게시물 삭제에 실패했습니다.');
+    }
+  };
+
   // BookmarkItem을 FeedItem으로 변환
   const convertToFeedItem = (item: BookmarkItem): FeedItem => ({
     id: item.id,
@@ -113,16 +129,31 @@ export default function BookmarksPage() {
 
   const renderBookmarkItem = ({ item }: { item: BookmarkItem }) => {
     const feedItem = convertToFeedItem(item);
+    const showDeleteButton = true; // 북마크 페이지에서는 모든 게시물에 메뉴 표시
+    
+    console.log('북마크 아이템 렌더링:', {
+      itemId: item.id,
+      authorId: feedItem.authorId,
+      currentUserId,
+      showDeleteButton,
+      hasOnDelete: true
+    });
+    
+    const handleRemoveFromBookmark = () => {
+      handleBookmark(item.id, item.type); // 북마크 토글 = 북마크 제거
+    };
     
     return (
       <BaseCard
         feed={feedItem}
         liked={item.isLiked}
         bookmarked={true}
+        showDeleteButton={showDeleteButton}
         onLike={() => handleLike(item.id, item.type)}
         onComment={() => handleComment(item.id, item.type)}
         onShare={() => handleShare(item.id, item.type, item.title, item.authorNickname)}
         onBookmark={() => handleBookmark(item.id, item.type)}
+        onDelete={handleRemoveFromBookmark}
         onPress={() => handlePress(item.id, item.type)}
       >
         {/* BaseCard 내부 콘텐츠 */}

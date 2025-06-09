@@ -7,12 +7,14 @@ type Props = {
   feed: FeedItem;
   liked: boolean;
   bookmarked?: boolean;
+  showDeleteButton?: boolean;
   selectedOption?: number;
   onLike: () => void;
   onSelectOption: (optionIndex: number) => void;
   onComment: () => void;
   onShare: () => void;
   onBookmark?: () => void;
+  onDelete?: () => void;
   onPress?: () => void;
 };
 

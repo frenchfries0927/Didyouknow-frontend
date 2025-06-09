@@ -1,21 +1,30 @@
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
-import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Image, StyleSheet, Text, TouchableOpacity, View, Alert, Platform } from 'react-native';
 import { FeedItem } from '../../services/api/types';
 
 type BaseCardProps = {
   feed: FeedItem;
   liked: boolean;
   bookmarked?: boolean;
+  showDeleteButton?: boolean;
   onLike: () => void;
   onComment: () => void;
   onShare: () => void;
   onBookmark?: () => void;
+  onDelete?: () => void;
   onPress?: () => void;
   children: React.ReactNode;
 };
 
-export default function BaseCard({ feed, liked, bookmarked, onLike, onComment, onShare, onBookmark, onPress, children }: BaseCardProps) {
+export default function BaseCard({ feed, liked, bookmarked, showDeleteButton, onLike, onComment, onShare, onBookmark, onDelete, onPress, children }: BaseCardProps) {
+  console.log('BaseCard 렌더링:', {
+    feedId: feed.id,
+    showDeleteButton,
+    hasOnDelete: !!onDelete,
+    bookmarked
+  });
+
   return (
     <TouchableOpacity 
       style={styles.card} 
@@ -54,7 +63,39 @@ export default function BaseCard({ feed, liked, bookmarked, onLike, onComment, o
           style={styles.moreButton}
           onPress={(e) => {
             e.stopPropagation();
-            // 더보기 메뉴 로직
+            console.log('더보기 버튼 클릭:', { showDeleteButton, onDelete: !!onDelete, bookmarked });
+            
+            // 웹과 모바일 환경 구분
+            if (onDelete) {
+              const deleteText = bookmarked ? '북마크에서 제거' : '게시물 삭제';
+              const confirmMessage = `${deleteText}하시겠습니까?`;
+              
+              if (Platform.OS === 'web') {
+                // 웹 환경
+                if ((window as any).confirm(confirmMessage)) {
+                  console.log('삭제 확인됨');
+                  onDelete();
+                } else {
+                  console.log('삭제 취소됨');
+                }
+              } else {
+                // 모바일 환경
+                Alert.alert(
+                  '확인',
+                  confirmMessage,
+                  [
+                    { text: '취소', style: 'cancel' },
+                    { text: deleteText, style: 'destructive', onPress: onDelete }
+                  ]
+                );
+              }
+            } else {
+              if (Platform.OS === 'web') {
+                (window as any).alert('신고 기능은 준비 중입니다.');
+              } else {
+                Alert.alert('알림', '신고 기능은 준비 중입니다.');
+              }
+            }
           }}
         >
           <Ionicons name="ellipsis-vertical" size={20} color="#7d7d7d" />
