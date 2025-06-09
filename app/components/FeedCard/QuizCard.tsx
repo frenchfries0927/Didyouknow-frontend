@@ -10,6 +10,7 @@ type Props = {
   onLike: () => void;
   onSelectOption: (optionIndex: number) => void;
   onComment: () => void;
+  onShare: () => void;
   onPress?: () => void;
 };
 

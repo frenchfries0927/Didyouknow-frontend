@@ -1,10 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useState, useCallback } from 'react';
-import { ActivityIndicator, Dimensions, Modal, RefreshControl, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Dimensions, Modal, RefreshControl, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import FeedCard from '../components/FeedCard';
 import { feedApi } from '../services/api/endpoints/feed';
 import { Comment, FeedItem } from '../services/api/types';
+import { showShareOptions } from '../utils/share';
 
 // 화면 너비 가져오기
 const { width } = Dimensions.get('window');
@@ -210,6 +211,40 @@ export default function FeedScreen() {
     }
   };
 
+  const handleShare = async (feedId: number) => {
+    console.log('공유 버튼 클릭됨, feedId:', feedId);
+    
+    try {
+      console.log('피드 찾는 중...');
+      const feed = feeds.find(f => f.id === feedId);
+      console.log('찾은 피드:', feed);
+      
+      if (!feed) {
+        console.error('피드를 찾을 수 없음:', feedId);
+        Alert.alert('오류', '공유할 게시물을 찾을 수 없습니다.');
+        return;
+      }
+
+      console.log('폴백 공유 데이터 생성 중...');
+      // 바로 폴백 공유 데이터로 테스트
+      const fallbackShareData = {
+        shareUrl: `https://didyouknow.app/post/${feedId}`,
+        shareText: `${feed.title} - DidYouKnow 앱에서 확인해보세요!`,
+        title: feed.title,
+        author: feed.author
+      };
+      console.log('생성된 폴백 공유 데이터:', fallbackShareData);
+      
+      console.log('showShareOptions 호출 중...');
+      showShareOptions(fallbackShareData);
+      console.log('showShareOptions 호출 완료');
+      
+    } catch (error) {
+      console.error('handleShare 함수에서 오류 발생:', error);
+      Alert.alert('오류', '공유 처리 중 오류가 발생했습니다.');
+    }
+  };
+
   const handleImageError = (feedId: number) => {
     setImageErrors(prev => ({...prev, [feedId]: true}));
   };
@@ -280,6 +315,7 @@ export default function FeedScreen() {
               selectedOption={selectedOptions[feed.id]}
               onLike={() => toggleLike(feed.id)}
               onComment={() => openCommentModal(feed.id)}
+              onShare={() => handleShare(feed.id)}
               onSelectOption={(index: number) => selectOption(feed.id, index)}
               onPress={() => handleFeedPress(feed)}
             />

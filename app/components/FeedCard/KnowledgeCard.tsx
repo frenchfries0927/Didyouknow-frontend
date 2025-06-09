@@ -8,6 +8,7 @@ type Props = {
   liked: boolean;
   onLike: () => void;
   onComment: () => void;
+  onShare: () => void;
   onPress?: () => void;
 };
 

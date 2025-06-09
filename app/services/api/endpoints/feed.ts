@@ -151,5 +151,16 @@ export const feedApi = {
       console.error(`답변 제출 실패:`, error);
       throw error;
     }
+  },
+
+  // 게시글 공유 정보 조회
+  getShareInfo: async (feedId: number): Promise<{ shareUrl: string, shareText: string, title: string, author: string }> => {
+    try {
+      const response = await api.get<ApiResponse<{ shareUrl: string, shareText: string, title: string, author: string }>>(`/api/posts/${feedId}/share`);
+      return response.data.data;
+    } catch (error) {
+      console.error(`게시글 공유 정보 조회 실패:`, error);
+      throw error;
+    }
   }
 }; 

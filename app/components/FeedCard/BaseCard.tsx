@@ -8,11 +8,12 @@ type BaseCardProps = {
   liked: boolean;
   onLike: () => void;
   onComment: () => void;
+  onShare: () => void;
   onPress?: () => void;
   children: React.ReactNode;
 };
 
-export default function BaseCard({ feed, liked, onLike, onComment, onPress, children }: BaseCardProps) {
+export default function BaseCard({ feed, liked, onLike, onComment, onShare, onPress, children }: BaseCardProps) {
   return (
     <TouchableOpacity 
       style={styles.card} 
@@ -109,7 +110,7 @@ export default function BaseCard({ feed, liked, onLike, onComment, onPress, chil
           style={styles.shareButton}
           onPress={(e) => {
             e.stopPropagation();
-            // 공유 로직
+            onShare();
           }}
         >
           <Ionicons name="share-outline" size={24} color="#666" />
