@@ -19,6 +19,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { feedApi } from './services/api/endpoints/feed';
 import { userApi } from './services/api/endpoints/user';
 import { FeedItem, Comment } from './services/api/types';
+import { showShareOptions } from './utils/share';
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -217,6 +218,39 @@ export default function PostDetailPage() {
     }
   };
 
+  const handleShare = async () => {
+    console.log('상세 페이지 공유 버튼 클릭됨');
+    if (!post) {
+      console.error('post가 null입니다');
+      return;
+    }
+
+    console.log('공유할 post:', post.id, post.title);
+
+    try {
+      // 백엔드에서 공유 정보 가져오기
+      console.log('백엔드에서 공유 정보 요청 중...');
+      const shareData = await feedApi.getShareInfo(post.id);
+      console.log('공유 정보 받아옴:', shareData);
+      
+      // 공유 옵션 메뉴 표시
+      showShareOptions(shareData);
+    } catch (error) {
+      console.error('공유 처리 실패:', error);
+      console.log('폴백 공유 실행 중...');
+      
+      // 폴백 공유
+      const fallbackShareData = {
+        shareUrl: `https://didyouknow.app/post/${post.id}`,
+        shareText: `${post.title} - DidYouKnow 앱에서 확인해보세요!`,
+        title: post.title,
+        author: post.author
+      };
+      console.log('폴백 공유 데이터:', fallbackShareData);
+      showShareOptions(fallbackShareData);
+    }
+  };
+
   const renderComment = ({ item }: { item: Comment }) => (
     <View style={styles.commentItem}>
       <View style={styles.commentHeader}>
@@ -365,7 +399,7 @@ export default function PostDetailPage() {
               <TouchableOpacity style={styles.actionButton}>
                 <Ionicons name="repeat-outline" size={22} color="#536471" />
               </TouchableOpacity>
-              <TouchableOpacity style={styles.actionButton}>
+              <TouchableOpacity style={styles.actionButton} onPress={handleShare}>
                 <Ionicons name="share-outline" size={20} color="#536471" />
               </TouchableOpacity>
             </View>

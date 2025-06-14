@@ -6,8 +6,13 @@ import BaseCard from './BaseCard';
 type Props = {
   feed: FeedItem;
   liked: boolean;
+  bookmarked?: boolean;
+  showDeleteButton?: boolean;
   onLike: () => void;
   onComment: () => void;
+  onShare: () => void;
+  onBookmark?: () => void;
+  onDelete?: () => void;
   onPress?: () => void;
 };
 

@@ -72,6 +72,26 @@ export default function TabLayout() {
           tabBarIcon: ({ color }) => <Ionicons name="person" size={24} color={color} />,
         }}
       />
+      
+      {/* 숨겨진 탭들 - 하단바에 표시되지 않음 */}
+      <Tabs.Screen
+        name="settings"
+        options={{
+          href: null, // 탭바에 표시하지 않음
+        }}
+      />
+      <Tabs.Screen
+        name="followers"
+        options={{
+          href: null, // 탭바에 표시하지 않음
+        }}
+      />
+      <Tabs.Screen
+        name="following"
+        options={{
+          href: null, // 탭바에 표시하지 않음
+        }}
+      />
     </Tabs>
   );
 }

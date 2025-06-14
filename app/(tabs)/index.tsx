@@ -1,10 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useState, useCallback } from 'react';
-import { ActivityIndicator, Dimensions, Modal, RefreshControl, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Dimensions, Modal, RefreshControl, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import FeedCard from '../components/FeedCard';
 import { feedApi } from '../services/api/endpoints/feed';
+import { bookmarkApi } from '../services/api/endpoints/bookmark';
 import { Comment, FeedItem } from '../services/api/types';
+import { showShareOptions } from '../utils/share';
 
 // 화면 너비 가져오기
 const { width } = Dimensions.get('window');
@@ -20,6 +22,8 @@ export default function FeedScreen() {
   const [comments, setComments] = useState<Comment[]>([]);
   const [selectedOptions, setSelectedOptions] = useState<Record<number, number>>({});
   const [likedFeeds, setLikedFeeds] = useState<Record<number, boolean>>({});
+  const [bookmarkedFeeds, setBookmarkedFeeds] = useState<Record<number, boolean>>({});
+  const [currentUserId, setCurrentUserId] = useState<number>(2);
   const [refreshing, setRefreshing] = useState(false);
   const [imageErrors, setImageErrors] = useState<{[key: number]: boolean}>({});
 
@@ -42,6 +46,22 @@ export default function FeedScreen() {
       }, {} as {[key: number]: boolean});
       
       setLikedFeeds(likedState);
+      
+      // 북마크 상태 로드
+      const userId = 1; // 실제로는 저장된 사용자 ID 사용
+      const bookmarkState: {[key: number]: boolean} = {};
+      
+      for (const feed of feedsData) {
+        try {
+          const response = await bookmarkApi.checkBookmark(userId, feed.type, feed.id);
+          bookmarkState[feed.id] = response.data.isBookmarked;
+        } catch (error) {
+          console.log(`북마크 상태 확인 실패 (${feed.id}):`, error);
+          bookmarkState[feed.id] = false;
+        }
+      }
+      
+      setBookmarkedFeeds(bookmarkState);
     } catch (err) {
       console.error('피드 로딩 실패:', err);
       setError('피드를 불러오는데 실패했습니다.');
@@ -210,6 +230,95 @@ export default function FeedScreen() {
     }
   };
 
+  const toggleBookmark = async (feedId: number) => {
+    try {
+      const feed = feeds.find(f => f.id === feedId);
+      if (!feed) return;
+
+      const userId = 1; // 실제로는 저장된 사용자 ID 사용
+      
+      // UI 먼저 업데이트
+      setBookmarkedFeeds(prev => ({
+        ...prev, 
+        [feedId]: !prev[feedId]
+      }));
+      
+      // 실제 API 호출
+      const result = await bookmarkApi.toggleBookmark(userId, feed.type, feedId);
+      
+      // 서버 응답으로 최종 업데이트
+      setBookmarkedFeeds(prev => ({
+        ...prev, 
+        [feedId]: result.data.isBookmarked
+      }));
+      
+      // 북마크 상태에 따른 피드백
+      Alert.alert(
+        '', 
+        result.data.isBookmarked ? '북마크에 저장되었습니다!' : '북마크가 해제되었습니다.'
+      );
+      
+    } catch (err) {
+      console.error('북마크 토글 실패:', err);
+      
+      // 오류 발생 시 원래 상태로 되돌림
+      setBookmarkedFeeds(prev => ({
+        ...prev, 
+        [feedId]: !prev[feedId]
+      }));
+      
+      Alert.alert('오류', '북마크 처리에 실패했습니다.');
+    }
+  };
+
+  const handleDelete = async (feedId: number, type: 'knowledge' | 'quiz') => {
+    try {
+      await feedApi.deletePost(feedId, type);
+      
+      // 피드에서 제거
+      setFeeds(prev => prev.filter(feed => feed.id !== feedId));
+      
+      Alert.alert('', '게시물이 삭제되었습니다.');
+    } catch (error) {
+      console.error('게시물 삭제 실패:', error);
+      Alert.alert('오류', '게시물 삭제에 실패했습니다.');
+    }
+  };
+
+  const handleShare = async (feedId: number) => {
+    console.log('공유 버튼 클릭됨, feedId:', feedId);
+    
+    try {
+      console.log('피드 찾는 중...');
+      const feed = feeds.find(f => f.id === feedId);
+      console.log('찾은 피드:', feed);
+      
+      if (!feed) {
+        console.error('피드를 찾을 수 없음:', feedId);
+        Alert.alert('오류', '공유할 게시물을 찾을 수 없습니다.');
+        return;
+      }
+
+      console.log('폴백 공유 데이터 생성 중...');
+      // 바로 폴백 공유 데이터로 테스트
+      const fallbackShareData = {
+        shareUrl: `https://didyouknow.app/post/${feedId}`,
+        shareText: `${feed.title} - DidYouKnow 앱에서 확인해보세요!`,
+        title: feed.title,
+        author: feed.author
+      };
+      console.log('생성된 폴백 공유 데이터:', fallbackShareData);
+      
+      console.log('showShareOptions 호출 중...');
+      showShareOptions(fallbackShareData);
+      console.log('showShareOptions 호출 완료');
+      
+    } catch (error) {
+      console.error('handleShare 함수에서 오류 발생:', error);
+      Alert.alert('오류', '공유 처리 중 오류가 발생했습니다.');
+    }
+  };
+
   const handleImageError = (feedId: number) => {
     setImageErrors(prev => ({...prev, [feedId]: true}));
   };
@@ -272,18 +381,35 @@ export default function FeedScreen() {
             </TouchableOpacity>
           </View>
         ) : (
-          feeds.map((feed) => (
-            <FeedCard
-              key={feed.id}
-              feed={feed}
-              liked={likedFeeds[feed.id]}
-              selectedOption={selectedOptions[feed.id]}
-              onLike={() => toggleLike(feed.id)}
-              onComment={() => openCommentModal(feed.id)}
-              onSelectOption={(index: number) => selectOption(feed.id, index)}
-              onPress={() => handleFeedPress(feed)}
-            />
-          ))
+          feeds.map((feed) => {
+            // 실제 작성자와 현재 사용자 비교 (테스트를 위해 여러 ID 시도)
+            const showDeleteButton = feed.authorId === currentUserId;
+            console.log('피드 아이템 렌더링:', {
+              feedId: feed.id,
+              authorId: feed.authorId,
+              currentUserId,
+              showDeleteButton,
+              author: feed.author
+            });
+            
+            return (
+              <FeedCard
+                key={feed.id}
+                feed={feed}
+                liked={likedFeeds[feed.id]}
+                bookmarked={bookmarkedFeeds[feed.id]}
+                showDeleteButton={showDeleteButton}
+                selectedOption={selectedOptions[feed.id]}
+                onLike={() => toggleLike(feed.id)}
+                onComment={() => openCommentModal(feed.id)}
+                onShare={() => handleShare(feed.id)}
+                onBookmark={() => toggleBookmark(feed.id)}
+                onDelete={() => handleDelete(feed.id, feed.type)}
+                onSelectOption={(index: number) => selectOption(feed.id, index)}
+                onPress={() => handleFeedPress(feed)}
+              />
+            );
+          })
         )}
       </ScrollView>
 
