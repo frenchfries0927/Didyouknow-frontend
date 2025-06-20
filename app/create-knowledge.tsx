@@ -9,8 +9,18 @@ import { StatusBar } from 'expo-status-bar';
 import * as ImagePicker from 'expo-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
+import Constants from 'expo-constants';
 
-const API_URL = 'http://localhost:8080';
+// API URL 가져오기
+const getApiUrl = () => {
+  const configuredUrl = Constants.expoConfig?.extra?.apiUrl;
+  if (configuredUrl) {
+    return configuredUrl;
+  }
+  return __DEV__ ? 'http://localhost:8080' : 'http://13.125.111.127:8080';
+};
+
+const API_URL = getApiUrl();
 
 export default function CreateKnowledgeScreen() {
   const router = useRouter();

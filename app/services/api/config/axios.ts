@@ -4,12 +4,18 @@ import Constants from 'expo-constants';
 
 // 환경별 API URL 설정
 const getApiBaseUrl = () => {
+  // Constants.expoConfig?.extra?.apiUrl에서 환경별 URL 가져오기
+  const configuredUrl = Constants.expoConfig?.extra?.apiUrl;
+  
+  if (configuredUrl) {
+    return configuredUrl;
+  }
+  
+  // fallback: app.config.js에서 설정하지 않은 경우
   if (__DEV__) {
-    // 개발 환경
     return 'http://localhost:8080';
   } else {
-    // 프로덕션 환경 - AWS Elastic Beanstalk URL로 변경해야 함
-    return Constants.expoConfig?.extra?.apiUrl || 'https://your-aws-url.com';
+    return 'http://13.125.111.127:8080'; // EC2 프로덕션 URL
   }
 };
 
