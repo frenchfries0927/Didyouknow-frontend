@@ -1,8 +1,19 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
+import Constants from 'expo-constants';
 
-// Android 에뮬레이터 기준: 10.0.2.2, 실제 기기에서는 로컬 IP 사용
-const API_BASE_URL = 'http://localhost:8080';
+// 환경별 API URL 설정
+const getApiBaseUrl = () => {
+  if (__DEV__) {
+    // 개발 환경
+    return 'http://localhost:8080';
+  } else {
+    // 프로덕션 환경 - AWS Elastic Beanstalk URL로 변경해야 함
+    return Constants.expoConfig?.extra?.apiUrl || 'https://your-aws-url.com';
+  }
+};
+
+const API_BASE_URL = getApiBaseUrl();
 
 // 커스텀 요청 타입: _retry 속성 추가
 interface RetryAxiosRequestConfig {
@@ -22,6 +33,8 @@ const api = axios.create({
     Accept: 'application/json',
   },
 });
+
+console.log('🌐 API Base URL:', API_BASE_URL);
 
 // 요청 인터셉터: AccessToken 자동 삽입
 api.interceptors.request.use(

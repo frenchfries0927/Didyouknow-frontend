@@ -1,3 +1,5 @@
+const IS_DEV = process.env.NODE_ENV === 'development';
+
 export default {
   expo: {
     name: "didyouknow",
@@ -31,6 +33,9 @@ export default {
     scheme: "didyouknow",
     extra: {
       googleClientId: "여기에_실제_구글_클라이언트_ID_입력",
+      apiUrl: IS_DEV 
+        ? "http://localhost:8080"
+        : "http://13.125.111.127:8080", // EC2 실제 URL
       eas: {
         projectId: "여기에_EAS_프로젝트_ID_입력_또는_삭제"
       }
