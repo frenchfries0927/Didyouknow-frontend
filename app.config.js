@@ -1,5 +1,7 @@
-// Expo에서는 __DEV__ 사용 (NODE_ENV가 항상 설정되지 않음)
-const IS_DEV = __DEV__ || process.env.NODE_ENV === 'development';
+// NODE_ENV가 production이면 강제로 프로덕션 모드
+const IS_DEV = process.env.NODE_ENV === 'production' 
+  ? false  // NODE_ENV=production이면 강제로 false
+  : (__DEV__ || process.env.NODE_ENV === 'development');
 
 export default {
   expo: {
@@ -34,7 +36,7 @@ export default {
     scheme: "didyouknow",
     extra: {
       googleClientId: "여기에_실제_구글_클라이언트_ID_입력",
-      // 환경별 자동 분기
+      // 환경별 자동 분기 (수정된 로직)
       apiUrl: IS_DEV 
         ? "http://localhost:8080"        // 개발환경: 로컬 서버
         : "http://13.125.111.127:8080",  // 프로덕션환경: EC2 서버
