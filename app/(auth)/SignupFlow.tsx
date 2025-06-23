@@ -1,8 +1,20 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
+import Constants from 'expo-constants';
 import AlarmSetup from './AlarmSetup';
 import ProfileSetup from './ProfileSetup';
+
+// API URL 가져오기
+const getApiUrl = () => {
+  const configuredUrl = Constants.expoConfig?.extra?.apiUrl;
+  if (configuredUrl) {
+    return configuredUrl;
+  }
+  return __DEV__ ? 'http://localhost:8080' : 'http://13.125.111.127:8080';
+};
+
+const API_URL = getApiUrl();
 
 export default function SignupFlow() {
   const router = useRouter();
@@ -33,15 +45,16 @@ export default function SignupFlow() {
     console.log('[AlarmSetup] token:', token);
     // 여기서 profile + alarm 정보를 백엔드로 전송
     try {
-      // TODO: 실제 API 엔드포인트로 교체
+      // API 엔드포인트에 동적 URL 사용
       console.log('[AlarmSetup] fetch 요청 직전', {
         nickname: profile.nickname,
         profileImage: profile.profileImage,
         alarmEnabled: enabled,
         alarmHour: hour,
         token,
+        apiUrl: API_URL,
       });
-      await fetch('http://localhost:8080/api/users/me/complete-profile', {
+      await fetch(`${API_URL}/api/users/me/complete-profile`, {
         method: 'PATCH',
         headers: { 
             'Authorization': `Bearer ${token}`,
