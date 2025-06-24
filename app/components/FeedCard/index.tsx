@@ -9,6 +9,7 @@ type Props = {
   bookmarked?: boolean;
   showDeleteButton?: boolean;
   selectedOption?: number;
+  answerResult?: { correct: boolean; correctAnswer: number; userAnswer: number } | null;
   onLike: () => void;
   onSelectOption?: (optionIndex: number) => void;
   onComment: () => void;
@@ -18,9 +19,9 @@ type Props = {
   onPress?: () => void;
 };
 
-export default function FeedCard({ feed, onSelectOption, onShare, onBookmark, onDelete, onPress, ...props }: Props) {
+export default function FeedCard({ feed, answerResult, onSelectOption, onShare, onBookmark, onDelete, onPress, ...props }: Props) {
   if (feed.type === 'quiz') {
-    return <QuizCard feed={feed} onSelectOption={onSelectOption!} onShare={onShare} onBookmark={onBookmark} onDelete={onDelete} onPress={onPress} {...props} />;
+    return <QuizCard feed={feed} answerResult={answerResult} onSelectOption={onSelectOption!} onShare={onShare} onBookmark={onBookmark} onDelete={onDelete} onPress={onPress} {...props} />;
   }
   return <KnowledgeCard feed={feed} onShare={onShare} onBookmark={onBookmark} onDelete={onDelete} onPress={onPress} {...props} />;
 }

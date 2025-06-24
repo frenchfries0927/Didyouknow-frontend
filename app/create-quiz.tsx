@@ -162,15 +162,15 @@ export default function CreateQuizScreen() {
       // FormData 내용 디버깅을 위해 출력
       console.log('FormData 준비됨, 요청 전송 중... userId:', user.id);
       
-      // API 호출 - Content-Type 헤더 명시적 추가
+      // API 호출 - Content-Type 헤더 제거 (자동 설정되도록)
       const response = await axios.post(
         `${API_URL}/api/quizzes`, 
         formData,
         {
-          headers: {
-            'Content-Type': 'multipart/form-data',
-          },
-          withCredentials: true // CORS 요청에 쿠키 포함
+          // Content-Type 헤더를 제거하여 브라우저가 자동으로 설정하도록 함
+          // multipart/form-data의 경우 boundary가 자동으로 추가되어야 함
+          headers: {},
+          withCredentials: false // CORS 요청에서 credentials 비활성화
         }
       );
       

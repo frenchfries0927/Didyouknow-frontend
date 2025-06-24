@@ -36,10 +36,8 @@ export default {
     scheme: "didyouknow",
     extra: {
       googleClientId: "여기에_실제_구글_클라이언트_ID_입력",
-      // 환경별 자동 분기 (NODE_ENV 기반)
-      apiUrl: IS_DEV 
-        ? "http://localhost:8080"        // 개발환경: 로컬 서버
-        : "http://13.125.111.127:8080",  // 프로덕션환경: EC2 서버
+      // 로컬 백엔드 사용으로 변경
+      apiUrl: "http://localhost:8080",  // 로컬 서버로 설정
       eas: {
         projectId: "여기에_EAS_프로젝트_ID_입력_또는_삭제"
       }

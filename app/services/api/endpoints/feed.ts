@@ -143,9 +143,9 @@ export const feedApi = {
   },
   
   // 퀴즈 정답 제출
-  submitAnswer: async (feedId: number, optionIndex: number): Promise<{ correct: boolean, correctAnswer?: number }> => {
+  submitAnswer: async (feedId: number, optionIndex: number): Promise<{ correct: boolean, correctAnswer: number, userAnswer: number }> => {
     try {
-      const response = await api.post<ApiResponse<{ correct: boolean, correctAnswer?: number }>>(`/api/feed/${feedId}/answer`, { answer: optionIndex });
+      const response = await api.post<ApiResponse<{ correct: boolean, correctAnswer: number, userAnswer: number }>>(`/api/quizzes/${feedId}/check-answer`, { answer: optionIndex });
       return response.data.data;
     } catch (error) {
       console.error(`답변 제출 실패:`, error);

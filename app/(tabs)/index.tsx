@@ -7,6 +7,7 @@ import { feedApi } from '../services/api/endpoints/feed';
 import { bookmarkApi } from '../services/api/endpoints/bookmark';
 import { Comment, FeedItem } from '../services/api/types';
 import { showShareOptions } from '../utils/share';
+import Constants from 'expo-constants';
 
 // 화면 너비 가져오기
 const { width } = Dimensions.get('window');
@@ -26,6 +27,9 @@ export default function FeedScreen() {
   const [currentUserId, setCurrentUserId] = useState<number>(2);
   const [refreshing, setRefreshing] = useState(false);
   const [imageErrors, setImageErrors] = useState<{[key: number]: boolean}>({});
+
+  // 현재 연결된 API URL 가져오기
+  const currentApiUrl = Constants.expoConfig?.extra?.apiUrl || 'Unknown';
 
   useEffect(() => {
     fetchFeeds();
@@ -219,12 +223,21 @@ export default function FeedScreen() {
     }
   };
 
+  const [answerResults, setAnswerResults] = useState<Record<number, { correct: boolean; correctAnswer: number; userAnswer: number }>>({});
+
   const selectOption = async (feedId: number, optionIndex: number) => {
     setSelectedOptions(prev => ({...prev, [feedId]: optionIndex}));
     
     try {
-      // 실제 API 호출
-      await feedApi.submitAnswer(feedId, optionIndex);
+      // 실제 API 호출로 정답 체크
+      const result = await feedApi.submitAnswer(feedId, optionIndex);
+      
+      // 결과 저장
+      setAnswerResults(prev => ({
+        ...prev,
+        [feedId]: result
+      }));
+      
     } catch (err) {
       console.error('답변 제출 실패:', err);
     }
@@ -345,7 +358,12 @@ export default function FeedScreen() {
     <SafeAreaView style={styles.container}>
       {/* 상단 네비게이션 바 */}
       <View style={styles.navbar}>
-        <Text style={styles.logoText}>logo</Text>
+        <View style={styles.logoContainer}>
+          <Text style={styles.logoText}>logo</Text>
+          <Text style={styles.apiText}>
+            {currentApiUrl.includes('localhost') ? '🟢 로컬' : '🔵 AWS'}
+          </Text>
+        </View>
         <View style={styles.navbarRight}>
           <TouchableOpacity style={styles.navButton}>
             <Ionicons name="notifications-outline" size={24} color="#000" />
@@ -400,6 +418,7 @@ export default function FeedScreen() {
                 bookmarked={bookmarkedFeeds[feed.id]}
                 showDeleteButton={showDeleteButton}
                 selectedOption={selectedOptions[feed.id]}
+                answerResult={answerResults[feed.id]}
                 onLike={() => toggleLike(feed.id)}
                 onComment={() => openCommentModal(feed.id)}
                 onShare={() => handleShare(feed.id)}
@@ -527,10 +546,18 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 1,
   },
+  logoContainer: {
+    alignItems: 'flex-start',
+  },
   logoText: {
     fontSize: 20,
     fontWeight: '700',
     color: '#FF6B6B',
+  },
+  apiText: {
+    fontSize: 10,
+    color: '#666',
+    marginTop: 2,
   },
   navbarRight: {
     flexDirection: 'row',
